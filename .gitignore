@@ -1,2 +1,5 @@
 /resources
 /tools
+.ipynb_checkpoints/
+__pycache__/
+
