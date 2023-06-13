@@ -12,3 +12,59 @@
 // the screen should remain fully clear as long as no key is pressed.
 
 // Put your code here.
+
+// Screen: 256 rows, 512 pixels/row
+// Starts at RAM address 16384 (symbol SCREEN)
+// Each row is 32 consecutive 16-bit words.
+// Pixel at row `r` from top and column `c` from left is at c%16 bit (from LSB to MSB) of the word at
+// RAM[16384 + r*32 + c/16]
+// 1 = black; 0 = white
+// KBD @ 24576
+//
+// Pseudo code:
+// i = 0        <- current pixel
+//
+// while True:
+//     if state = keyUp:
+//         RAM[16384 + r*32 + c/16 + (15 - c % 16] = 0
+//     else:
+//         that address = 1
+//     i++
+//     if i > 512 * 256:
+//         i = 0
+//     
+//
+
+@i              
+//MD=0            //  set cur pixel i = 0
+M=0
+(LOOP)
+//@SCREEN
+//A=A+D           // set A = screen + i
+@KBD
+D=M             // get keypress status
+@KEYUP
+D;JEQ
+@KEYDOWN
+D;JGT
+(KEYUP)         // if key up
+@i
+D=M
+@SCREEN
+A=A+D
+M=0
+@ENDIF
+0;JMP
+(KEYDOWN)       // else if key down
+@i
+D=M
+@SCREEN
+A=A+D
+M=!M            // set M = !M (the entire word of pixels becomes black)
+@ENDIF
+0;JMP
+(ENDIF)
+@i
+M=M+1          // ++i
+@LOOP           
+0;JMP           // infinite loop
