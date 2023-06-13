@@ -21,19 +21,28 @@
 // 1 = black; 0 = white
 // KBD @ 24576
 //
-// Pseudo code:
-// i = 0        <- current pixel
-//
-// while True:
-//     if state = keyUp:
-//         RAM[16384 + r*32 + c/16 + (15 - c % 16] = 0
-//     else:
-//         that address = 1
-//     i++
-//     if i > 512 * 256:
-//         i = 0
-//     
-//
+
+/*
+        i = 0
+        col = 1
+
+        while True: // infinite loop
+            
+            while col <= 16:
+
+            pixel = 1 if KBD else 0
+                
+                SCREEN + i = SCREEN + i OR (col * pixel)
+
+                col += col
+
+            i++
+            col = 1
+
+            if i >= SCREEN + (256 * 32):
+                i = 0
+
+*/
 
 @i              
 //MD=0            //  set cur pixel i = 0
