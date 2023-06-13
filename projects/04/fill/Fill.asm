@@ -96,12 +96,12 @@ D=D-A               // D = col - 16
 D;JLT               // while col - 16 < 0, keep looping 
 
 @i
-MD=M+1               // increment i
+MD=M+1               // i++
 
-@24575
+@24575              // Reset i=SCREEN when i - 24575 > 0
 D=D-A
 @RESET
-D;JEQ
+D;JGT
 
 @OUTERLOOP           
 0;JMP               // infinite loop
