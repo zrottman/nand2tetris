@@ -64,25 +64,23 @@ D;JEQ
 D;JGT
 
 (ISKEYUP)           // If key is up, pixel = 0
-@pixel
-M=0
+@col
+D=!M
+@i
+A=M
+M=M&D
 @ENDIF
 0;JMP
 
 (ISKEYDOWN)         // If key is down, pixel = 1
 @col
 D=M
-@pixel
-M=D
-@ENDIF
-0;JMP
-(ENDIF)
-
-@pixel              // update current screen RAM
-D=M
 @i
 A=M
 M=M|D
+@ENDIF
+0;JMP
+(ENDIF)
 
 @col
 D=M
