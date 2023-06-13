@@ -21,59 +21,87 @@
 // 1 = black; 0 = white
 // KBD @ 24576
 //
+//        i = 0
+//        col = 1
+//
+//        while True: // infinite loop
+//            
+//            while col <= 16:
+//
+//            pixel = 1 if KBD else 0
+//                
+//                SCREEN + i = SCREEN + i OR (col * pixel)
+//
+//                col += col
+//
+//            i++
+//            col = 1
+//
+//            if i >= SCREEN + (256 * 32):
+//                i = 0
+//
 
-/*
-        i = 0
-        col = 1
-
-        while True: // infinite loop
-            
-            while col <= 16:
-
-            pixel = 1 if KBD else 0
-                
-                SCREEN + i = SCREEN + i OR (col * pixel)
-
-                col += col
-
-            i++
-            col = 1
-
-            if i >= SCREEN + (256 * 32):
-                i = 0
-
-*/
-
-@i              
-//MD=0            //  set cur pixel i = 0
-M=0
-(LOOP)
-//@SCREEN
-//A=A+D           // set A = screen + i
-@KBD
-D=M             // get keypress status
-@KEYUP
-D;JEQ
-@KEYDOWN
-D;JGT
-(KEYUP)         // if key up
-@i
-D=M
+(RESET)
 @SCREEN
-A=A+D
+D=A
+@i
+M=D                 // initialize i=SCREEN
+
+(OUTERLOOP)
+
+@col
+M=1                 // set col=1
+@colcount           
+M=0                 // set colcount=0
+
+(COLLOOP)
+
+@KBD                // get keyboard status
+D=M                 
+@ISKEYUP
+D;JEQ
+@ISKEYDOWN
+D;JGT
+
+(ISKEYUP)           // If key is up, pixel = 0
+@pixel
 M=0
 @ENDIF
 0;JMP
-(KEYDOWN)       // else if key down
-@i
+
+(ISKEYDOWN)         // If key is down, pixel = 1
+@col
 D=M
-@SCREEN
-A=A+D
-M=!M            // set M = !M (the entire word of pixels becomes black)
+@pixel
+M=D
 @ENDIF
 0;JMP
 (ENDIF)
+
+@pixel              // update current screen RAM
+D=M
 @i
-M=M+1          // ++i
-@LOOP           
-0;JMP           // infinite loop
+A=M
+M=M|D
+
+@col
+D=M
+@col
+MD=D+M
+@colcount
+MD=M+1
+@16
+D=D-A               // D = col - 16
+@COLLOOP
+D;JLT               // while col - 16 < 0, keep looping 
+
+@i
+MD=M+1               // increment i
+
+@24575
+D=D-A
+@RESET
+D;JEQ
+
+@OUTERLOOP           
+0;JMP               // infinite loop
