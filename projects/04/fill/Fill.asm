@@ -41,65 +41,65 @@
 //                i = 0
 //
 
-(RESET)
+(RESET)             // Jump here every time I need to reinitialize `i`
 @SCREEN
 D=A
 @i
-M=D                 // initialize i=SCREEN
+M=D                 // initialize `i` to first screen address
 
-(OUTERLOOP)
+(MAINLOOP)
 
-@col
-M=1                 // set col=1
-@colcount           
-M=0                 // set colcount=0
+@bitsplace          // variable to increment from 1, 2, 4, 8, 16, 32, 1 ...
+M=1                 // set bitsplace=1
+@j                  // variable to increment through 16-bits of word
+M=0                 // set j=0
 
-(COLLOOP)
+(WORDLOOP)
 
-@KBD                // get keyboard status
+@KBD                // get keyboard status and jump
 D=M                 
 @ISKEYUP
 D;JEQ
 @ISKEYDOWN
 D;JGT
 
-(ISKEYUP)           // If key is up, pixel = 0
-@col
-D=!M
+(ISKEYUP)           // if key is up
+@bitsplace
+D=!M                // negate `bitsplace`...
 @i
 A=M
-M=M&D
+M=M&D               // ... and AND it with current value @i
 @ENDIF
 0;JMP
 
-(ISKEYDOWN)         // If key is down, pixel = 1
-@col
+(ISKEYDOWN)         // if key is pressed
+@bitsplace
 D=M
 @i
 A=M
-M=M|D
+M=M|D               // OR `bitsplace` with current value @i
 @ENDIF
 0;JMP
 (ENDIF)
 
-@col
+@bitsplace
 D=M
-@col
+@bitsplace          // double `bitsplace
 MD=D+M
-@colcount
-MD=M+1
+@j
+MD=M+1              // increment `j`
 @16
-D=D-A               // D = col - 16
-@COLLOOP
-D;JLT               // while col - 16 < 0, keep looping 
+D=D-A               // D = `j` - 16
+@WORDLOOP
+D;JLT               // while `j` - 16 < 0, keep looping through word at @i
 
 @i
-MD=M+1               // i++
+MD=M+1              // increment `i` for subsequent screen address 
 
-@24575              // Reset i=SCREEN when i - 24575 > 0
+@24575              // if i - 24575 > 0, then we've exceeded screen addresses; 
 D=D-A
 @RESET
 D;JGT
 
-@OUTERLOOP           
+@MAINLOOP           
 0;JMP               // infinite loop
