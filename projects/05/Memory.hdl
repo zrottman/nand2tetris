@@ -41,23 +41,18 @@ CHIP Memory {
     PARTS:
 
     /* Select 0x0000-0x3fff (memory) v. 0x4000-0x6000 (io) */
-    DMux(in=load, sel=address[14], a=memory, b=io);
-    Mux16(a=memoryOut, b=ioOut, sel=address[14], out=out);
+    DMux(in=load, sel=address[14], a=memLoad, b=screenLoad);
 
     /* Memory (0x000-0x3fff) */
-    RAM16K(in=in, load=memory, address=address[0..13], out=memoryOut);
-
-    /* Select 0x4000-0x5fff (screen) v. 0x6000 (keyboard) */
-    DMux(in=io, sel=address[13], a=screen, b=kbd);
-    Mux16(a=screenOut, b=kbdOut, sel=address[13], out=ioOut);
+    RAM16K(in=in, load=memLoad, address=address[0..13], out=memoryOut);
 
     /* Screen (0x4000-0x5fff) */
-    DMux(in=screen, sel=address[12], a=screenUpper, b=screenLower);
-    RAM4K(in=in, load=screenUpper, address=address[0..11], out=screenUpperOut);
-    RAM4K(in=in, load=screenLower, address=address[0..11], out=screenLowerOut);
-    Mux16(a=screenUpperOut, b=screenLowerOut, sel=address[12], out=screenOut);
+    Screen(in=in, address=address[0..12], load=screenLoad, out=screenOut); 
 
     /* Keyboard (0x6000) */
-    And16(a[0..12]=false, a[13]=true, a[14..15]=false, b[0..12]=false, b[13]=kbd, b[14..15]=false, out[13]=kbdAnd);
-    Register(in=in, load=kbdAnd, out=kbdOut);
+    Keyboard(out=kbdOut); 
+
+    Mux16(a=screenOut, b=kbdOut, sel=address[13], out=ioOut);
+
+    Mux16(a=memoryOut, b=ioOut, sel=address[14], out=out);
 }
