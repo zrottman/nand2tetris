@@ -25,6 +25,10 @@
  * than to the address resulting from executing the current instruction. 
  */
 
+ /*
+  * 
+  *
+  */
 CHIP CPU {
 
     IN  inM[16],         // M value input  (M = contents of RAM[A])
@@ -39,5 +43,49 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    
+    /* Instruction in */
+    Mux16(b=ALUout, a=instruction, sel=instruction[15], out=toA);
+    Not(in=instruction[15], out=isAinst);
+    Or(a=isAinst, b=instruction[5], out=loadA);
+    ARegister(in=toA, load=loadA, out=ARegOut, out[0..14]=addressM);
+
+    /* inM */
+    Mux16(a=ARegOut, b=inM, sel=instruction[12], out=AMOut);
+
+    /* ALU */
+    ALU(
+        x=DRegOut, 
+        y=AMOut, 
+        zx=instruction[11],
+        nx=instruction[10],
+        zy=instruction[9],
+        ny=instruction[8],
+        f=instruction[7],
+        no=instruction[6],
+        ng=isNeg,
+        zr=isZero,
+        out=ALUout,
+        out=outM
+    );
+
+    /* D Register */
+    And(a=instruction[4], b=instruction[15], out=loadD);
+    DRegister(in=ALUout, load=loadD, out=DRegOut);
+    
+    /* PC */
+    And(a=instruction[2], b=isNeg, out=jmpNeg);
+    And(a=instruction[1], b=isZero, out=jmpZero);
+    And(a=instruction[0], b=isPos, out=jmpPos);
+    Or(a=isNeg, b=isZero, out=le);
+    Not(in=le, out=isPos);
+
+    Or8Way(in[0]=jmpNeg, in[1]=jmpZero, in[2]=jmpPos, out=jmpInst);
+    And(a=instruction[15], b=jmpInst, out=jmp);
+    Not(in=jmp, out=noJmp);
+    PC(in=ARegOut, reset=reset, inc=noJmp, load=jmp, out=pcOut, out[0..14]=pc);
+
+    /* writeM */
+    And(a=instruction[3], b=instruction[15], out=writeM);
+
 }
