@@ -1,3 +1,20 @@
+import re
+
+spec = {
+            r"^\d+":"NUMBER",
+            r"^\"([^\"]*)\"":"STRING",
+            r"^'([^']*)'":"STRING",
+            r"^@\d+":"A-INST",
+            
+
+            # Skip single line comment
+            r"^\/\/.*":None,
+
+            r"^;": ";"
+        }
+
+
+
 class Parser:
 
     def __init__(self):
@@ -11,7 +28,26 @@ class Parser:
         return self.Program()
 
     def Program(self):
-        return {'type':'Program', 'body':self.Literal()}
+        return {'type':'Program', 'body':self.StatementList()}
+
+    def StatementList(self):
+        statementList = [self.Statement()]
+
+        while self.lookahead != None:
+            statementList.append(self.Statement())
+
+        return statementList
+
+    def Statement(self):
+        return self.ExpressionStatement()
+
+    def ExpressionStatement(self):
+        expression = self.Expression()
+        self.eat(';')
+        return {'type': 'ExpressionStatement','expression':expression}
+
+    def Expression(self):
+        return self.Literal()
 
     def Literal(self):
         match self.lookahead['type']:
@@ -19,6 +55,8 @@ class Parser:
                 return self.NumericLiteral()
             case 'STRING':
                 return self.StringLiteral()
+            case 'A-INST':
+                return self.AInst()
 
     def NumericLiteral(self):
         token = self.eat('NUMBER')
@@ -27,6 +65,10 @@ class Parser:
     def StringLiteral(self):
         token = self.eat('STRING')
         return {'type': 'StringLiteral', 'value': token['value']}
+
+    def AInst(self):
+        token = self.eat('A-INST')
+        return {'type': 'A-INST', 'value': token['value']}
 
     def eat(self, token_type):
         token = self.lookahead
@@ -56,38 +98,17 @@ class Tokenizer:
         return self.i < len(self.s)
 
     def get_next_token(self):
-        print("i={} (len(self.s)={})".format(self.i, len(self.s)))
         if (not self.has_more_tokens()):
             return None
 
         s = self.s[self.i:]
 
-        # Numbers
-        if(s[self.i].isnumeric()):
-            num = ''
-            while self.has_more_tokens() and s[self.i].isnumeric():
-                num += s[self.i]
-                self.i += 1
-            return { 'type': 'NUMBER', 'value': num }
+        for r, t in spec.items():
+            if (matched := re.match(r, s)):
+                self.i += len(matched[0])
+                return { 'type': t, 'value': matched[0]}
 
-        # Strings
-        if (s[0] == '"' or s[0] == "'"):
-            strng = ''
-            self.i += 1
-
-            if s[0] == '"':
-                while s[self.i] != '"' and not self.is_EOF():
-                    strng += s[self.i]
-                    self.i += 1
-            elif s[0] == "'":
-                while s[self.i] != "'" and not self.is_EOF():
-                    strng += s[self.i]
-                    self.i += 1
-
-            self.i += 1
-            return { 'type': 'STRING', 'value': strng }
-
-        return None
+        raise Exception("Unexpected token: {}".format(s[0]))
 
 if __name__ == '__main__':
 
@@ -95,7 +116,7 @@ if __name__ == '__main__':
 
     parser = Parser()
     
-    program = "'42'"
+    program = "42;"
 
     ast = parser.parse(program)
 
