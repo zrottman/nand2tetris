@@ -1,20 +1,20 @@
 from enum import Enum
+import sys
 
 command = Enum('command', ['A_COMMAND', 'C_COMMAND', 'L_COMMAND'])
 
 class Parser:
 
-    def __init__(self, path, file):
+    def __init__(self, path):
         self.current_command = ''
         self.line_number = 1
         self.input = []
         self.output = []
         self.code = Code()
-        self.path = path
-        self.file = file[:file.find('.')]
+        self.path = path[:path.find('.')]
 
         # read assembly file
-        with open (path + file, "r") as f:
+        with open (path, "r") as f:
             while (line := f.readline()):
 
                 # strip comments
@@ -82,7 +82,7 @@ class Parser:
         return '0000000000000000'[len(s):] + s
 
     def write(self):
-        outfile = path + self.file + '_z.hack'
+        outfile = self.path + '_z.hack'
         with open(outfile, 'w') as f:
             f.writelines([line + '\n' for line in self.output])
 
@@ -211,7 +211,7 @@ class SymbolTable:
 
 if __name__ == '__main__':
 
-    parser = Parser('add/', 'Add.asm')
+    parser = Parser(sys.argv[1])
 
     print(parser.input)
     
