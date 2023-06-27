@@ -7,11 +7,12 @@ class Parser:
 
     def __init__(self, path):
         self.current_command = ''
-        self.line_number = 1
         self.input = []
         self.output = []
         self.code = Code()
         self.path = path[:path.find('.')]
+        self.symbol_table = SymbolTable()
+        self.label_pass = []
 
         # read assembly file
         with open (path, "r") as f:
@@ -23,7 +24,7 @@ class Parser:
                     line = line[:comment]
 
                 # strip newline
-                line = line.rstrip()
+                line = line.strip()
 
                 # if there's a line, append it
                 if line:
@@ -31,12 +32,10 @@ class Parser:
 
 
     def has_more_commands(self):
-        return len(self.input) > 0
+        return len(self.label_pass) > 0
 
     def advance(self):
-        self.current_command = self.input.pop(0)
-        if self.command_type() != command.L_COMMAND:
-            self.line_number += 1
+        self.current_command = self.label_pass.pop(0)
 
     def command_type(self):
         match self.current_command[0]:
@@ -86,7 +85,33 @@ class Parser:
         with open(outfile, 'w') as f:
             f.writelines([line + '\n' for line in self.output])
 
+    def parse_A_command(self):
+        cur = self.current_command[1:]
+        if cur.isnumeric():
+            pass
+        elif self.symbol_table.contains(cur):
+            cur = self.symbol_table.get_address(cur)
+        else:
+            cur = self.symbol_table.add_entry(cur)
+        
+        return self.int_to_binstring(cur)
+
+    def parse_L_command(self):
+        return self.current_command[1:-1]
+
     def parse(self):
+
+        # First pass: Add all loop commands to symbols dict. and delete from input
+        lc = 0
+        for line in self.input:
+            if line.startswith('(') and not self.symbol_table.contains(line[1:-1]):
+                self.symbol_table.add_entry(line[1:-1], lc)
+            else:
+                self.label_pass.append(line)
+                lc += 1
+
+
+        # Second pass: parse input to assembly
         self.advance()
         loop = True
 
@@ -95,10 +120,9 @@ class Parser:
             match self.command_type():
 
                 case command.A_COMMAND:
-                    self.output.append(self.int_to_binstring(self.current_command[1:]))
+                    self.output.append(self.parse_A_command())
                 
                 case command.L_COMMAND:
-                    # set symbol = line_number + 2
                     pass
 
                 case command.C_COMMAND:
@@ -202,7 +226,13 @@ class SymbolTable:
                     }
             self.cur_mem = 16
 
-    def add_entry(self, s, a): self.symbols[s] = a
+
+    def add_entry(self, s, a=None): 
+        if not a:
+            a = self.cur_mem
+            self.cur_mem += 1
+        self.symbols[s] = a
+        return self.symbols[s]
 
     def contains(self, s): return s in self.symbols
 
@@ -213,11 +243,8 @@ if __name__ == '__main__':
 
     parser = Parser(sys.argv[1])
 
-    print(parser.input)
+    #print(parser.input)
     
     parser.parse()
 
     parsed = parser.output
-
-    for line in parsed:
-        print(line)
