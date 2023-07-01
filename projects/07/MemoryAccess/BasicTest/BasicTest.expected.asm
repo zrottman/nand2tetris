@@ -139,12 +139,12 @@
     M=D
 
 //push argument 1
-//sub -> RAM[SP-1] - RAM[SP]
+//sub -> RAM[SP-1]/item2 - RAM[SP]/item1
 
     // SP--
     @SP
     M=M-1
-    // RAM[R13]=RAM[SP]
+    // RAM[R13]=RAM[SP]=item1
     A=M
     D=M
     @R13
@@ -152,20 +152,19 @@
     // SP--
     @SP
     M=M-1
-    // RAM[R14]=RAM[SP]
+    // D=RAM[SP]=item2
     A=M
     D=M
-    @R14
-    M=D
-    // D=RAM[R13]-RAM[R14]
+    // D=item2-item1=D-RAM[R13]
     @R13
-    D=M
-    @R14
     D=D-M
     // RAM[SP]=D
     @SP
     A=M
     M=D
+    // SP++
+    @SP
+    M=M+1
 
 //push this 6
 //push this 6
