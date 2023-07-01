@@ -6,15 +6,18 @@ command = Enum('command', ['A_COMMAND', 'C_COMMAND', 'L_COMMAND'])
 class Parser:
 
     def __init__(self, path):
-        self.current_command = ''
-        self.input = []
-        self.output = []
-        self.code = Code()
-        self.path = path[:path.find('.')]
-        self.symbol_table = SymbolTable()
-        self.label_pass = []
 
-        # read assembly file
+        self.current_command = ''
+        self.path = path[:path.find('.')]
+
+        self.input = []
+        self.without_labels = []
+        self.output = []
+
+        self.code = Code()
+        self.symbol_table = SymbolTable()
+
+        # read assembly file to `input`
         with open (path, "r") as f:
             while (line := f.readline()):
 
@@ -23,7 +26,7 @@ class Parser:
                 if comment >= 0: 
                     line = line[:comment]
 
-                # strip newline
+                # strip newline/space
                 line = line.strip()
 
                 # if there's a line, append it
@@ -32,12 +35,15 @@ class Parser:
 
 
     def has_more_commands(self):
-        return len(self.label_pass) > 0
+        return len(self.without_labels) > 0
 
     def advance(self):
-        self.current_command = self.label_pass.pop(0)
+        self.current_command = self.without_labels.pop(0)
 
     def command_type(self):
+        '''
+        Return command type based on initial character of `current_command`
+        '''
         match self.current_command[0]:
             case '@':
                 return command.A_COMMAND
@@ -46,10 +52,10 @@ class Parser:
             case _:
                 return command.C_COMMAND
 
-    def symbol(self):
-        pass
-
     def dest(self):
+        '''
+        Parse dest component of `current_command`
+        '''
         d_end = self.current_command.find('=')
         if d_end >= 0:
             d = self.current_command[:d_end]
@@ -58,6 +64,9 @@ class Parser:
             return '000'
 
     def comp(self):
+        '''
+        Parse compute component of `current_command`
+        '''
         c_start = self.current_command.find('=') + 1
         c_end = self.current_command.find(';')
         if c_end > 0:
@@ -67,6 +76,9 @@ class Parser:
         return self.code.comp_table.get(c, '0000000')
 
     def jump(self):
+        '''
+        Parse jump component of `current_command`.
+        '''
         j_start = self.current_command.find(';') + 1
         if j_start > 0:
             j = self.current_command[j_start:]
@@ -75,39 +87,54 @@ class Parser:
             return '000'
 
     def int_to_binstring(self, i):
+        '''
+        Convert integer to 15-bit bitstring.
+        '''
         i = int(i)
         i = min(i, 2 ** 15 - 1)    # limit i to 2**15 - 1
         s = bin(i)[2:]
         return '0000000000000000'[len(s):] + s
 
     def write(self):
+        '''
+        Write `output` to input file path + file name and append `_z.hack`
+        to differentiate it from files assembled with built-in assembler.
+        '''
         outfile = self.path + '_z.hack'
         with open(outfile, 'w') as f:
             f.writelines([line + '\n' for line in self.output])
 
     def parse_A_command(self):
-        cur = self.current_command[1:]
-        if cur.isnumeric():
+        '''
+        Parse A command. If address is numeric, convert it to binstring. If address
+        is a symbol, look up in symbol table (adding if necessary) and convert the
+        returned address to binstring.
+        '''
+        addr = self.current_command[1:]
+        if addr.isnumeric():
             pass
-        elif self.symbol_table.contains(cur):
-            cur = self.symbol_table.get_address(cur)
+        elif self.symbol_table.contains(addr):
+            addr = self.symbol_table.get_address(addr)
         else:
-            cur = self.symbol_table.add_entry(cur)
+            addr = self.symbol_table.add_entry(addr)
         
-        return self.int_to_binstring(cur)
+        return self.int_to_binstring(addr)
 
     def parse_L_command(self):
+        '''
+        Returns label without opening/closing parens
+        '''
         return self.current_command[1:-1]
 
     def parse(self):
 
-        # First pass: Add all loop commands to symbols dict. and delete from input
+        # First pass: add loop commands to symbols dict. and delete from input
         lc = 0
         for line in self.input:
             if line.startswith('(') and not self.symbol_table.contains(line[1:-1]):
                 self.symbol_table.add_entry(line[1:-1], lc)
             else:
-                self.label_pass.append(line)
+                self.without_labels.append(line)
                 lc += 1
 
 
@@ -228,6 +255,9 @@ class SymbolTable:
 
 
     def add_entry(self, s, a=None): 
+        '''
+        to do: only increment self.cur_mem if a == None, otherwise don't
+        '''
         if not a:
             a = self.cur_mem
             self.cur_mem += 1
@@ -243,8 +273,17 @@ if __name__ == '__main__':
 
     parser = Parser(sys.argv[1])
 
-    #print(parser.input)
-    
     parser.parse()
 
     parsed = parser.output
+    
+
+    '''
+    to do:
+    C_INST: split on '=' and ';'
+    {:015b} formatting
+    dest : "".join(['1' if c in mnd else '0' for c in 'ADM'])
+    return s in self,symbols: return self,table,get(symbol) is not None
+    '''
+
+
