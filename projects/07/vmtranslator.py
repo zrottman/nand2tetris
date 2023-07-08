@@ -8,12 +8,27 @@ Command = Enum('Command', [
 ])
 
 class Parser:
+    '''
+    Parser object for each .vm file which is responsible for looping through 
+    input file, parsing each line, and passing the parsed result to CodeWriter
+    object, which writes assembly translation to file.
 
-    def __init__(self, read_path, write_path):
-        self.path = read_path
-        self.line = ''
-        self.file = open(self.path, 'r')
-        self.writer = CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib, needs some thought
+    Parameters
+        read_path: path to input file
+        write_path: path to output file
+        final_parser (default False): for projects with multiple .vm files, 
+            flags whether current .vm file is the final one, in which case 
+            write an infinite loop at program end.
+    '''
+
+    def __init__(self, read_path, write_path, final_parser=False):
+        self.path = read_path               # input file path
+        self.line = ''                      # current line
+        self.file = open(self.path, 'r')    # file object
+        self.final_parser = final_parser    # flag final .vm file
+
+        # instantiate CodeWriter with root and write path args
+        self.writer = CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
 
     def has_more_commands(self):
         '''
@@ -23,13 +38,16 @@ class Parser:
 
     def advance(self):
         '''
-        Advance self.line to next non-empty line.
+        Advance self.line to next non-empty line after stripping comments.
         '''
         while (line := self.file.readline()) and not (line := line.split('//')[0].strip()):
             continue
         self.line = line
 
     def command_type(self):
+        '''
+        Return command type.
+        '''
         command = self.line.split()[0]   # get first element from self.line
         match command:
             case 'push':
@@ -65,7 +83,7 @@ class Parser:
 
     def arg_2(self):
         '''
-        Returns third element from self.line
+        Return third element from self.line
         '''
         return self.line.split()[2]
     
@@ -76,6 +94,9 @@ class Parser:
 
         # Advance to first line
         self.advance()
+
+        # Write filename as comment
+        self.writer.write_filename()
 
         # Loop through file and process
         while self.has_more_commands():
@@ -98,8 +119,9 @@ class Parser:
             # advance to next line
             self.advance()
 
-        # infinite loop
-        self.writer.write_inf()
+        # write infinite loop if final parser (when parsing multiple .vm files)
+        if self.final_parser:
+            self.writer.write_inf()
             
         # Close input file
         self.file.close()
@@ -110,29 +132,72 @@ class Parser:
 class CodeWriter:
 
     def __init__(self, file, write_path):
-        self.write_path = write_path + '.asm'
-        self.file_id = file.rstrip('/').split('/')[-1]
-        self.counter = 0
+        self.write_path = write_path + '.asm'           # output file
+        self.file_id = file.rstrip('/').split('/')[-1]  # for label/static disambiguation
+        self.counter = 0                                # for label disambiguation
 
         # open output file
         self.file = open(self.write_path, 'a')
 
+    def write_filename(self):
+        '''
+        Write current .vm filename for debugging purposes
+        '''
+        self.file.write("//\n// {}\n//\n".format(self.file_id))
+
     def write_line(self, line):
+        '''
+        Write VM line in comments for debugging
+        '''
         self.file.write("//" + line + "\n")
 
+    def write_push(self, segment, index):
+        '''
+        Write push command
+        '''
+        if segment != 'static':
+            self._start_write_push(index)
+        if segment != 'constant':
+            self._mid_write_push(segment, index)
+        self._end_write_push()
+
+    def write_pop(self, segment, index):
+        '''
+        Write pop command
+        '''
+
+        self._start_write_pop(segment, index)
+        self._mid_write_pop(segment)
+        self._end_write_pop()
+
+    def write_arithmetic(self, command):
+        '''
+        Write arithmetic commend
+        '''
+        self._start_write_arithmetic(command)
+        self._mid_write_arithmetic(command)
+        self._end_write_arithmetic()
+
     def write_inf(self):
-        # write infinite loop
+        '''
+        Write infinite loop at end of final .vm file parsed.
+        '''
         self.file.write("// infinite loop\n")
         self.file.write("(END)\n")
         self.file.write("@END\n")
         self.file.write("0;JMP\n")
 
+    def close(self):
+        '''
+        Close write file
+        '''
+        self.file.close()
+
     def _start_write_arithmetic(self, command):
         '''
-        Set D=RAM[--SP] amd A=RAM[--SP], unless unary command, in which case
-        set D=RAM[--SP]
+        If unary command: set D=RAM[--SP]
+        Else: set D=RAM[--SP] and then A=RAM[--SP] (two SP decrements)
         '''
-
         # SP--
         self.file.write("@SP\n")
         self.file.write("M=M-1\n")
@@ -148,6 +213,9 @@ class CodeWriter:
             self.file.write("A=M\n")
 
     def _mid_write_arithmetic(self, command):
+        '''
+        Handle conditional command or binary/unary operation.
+        '''
 
         if command == 'eq' or command == 'gt' or command == 'lt':
             # D=y-x
@@ -171,7 +239,7 @@ class CodeWriter:
             # D=-1 if condition is true
             self.file.write("(TRUE.{}${})\n".format(self.file_id, self.counter))
             self.file.write("D=-1\n")
-            self.file.write("(ENDIF.{}${}\n)".format(self.file_id, self.counter))
+            self.file.write("(ENDIF.{}${})\n".format(self.file_id, self.counter))
             # RAM[SP]=D
             self.file.write("@SP\n")
             self.file.write("A=M\n")
@@ -195,28 +263,24 @@ class CodeWriter:
                     self.file.write("M=!M\n")
 
     def _end_write_arithmetic(self):
-        # SP++
+        '''
+        SP++
+        '''
         self.file.write("@SP\n")
         self.file.write("M=M+1\n")
 
-    def write_arithmetic(self, command):
-        '''
-        writes to the output file the assembly code that implements the 
-        given arithmetic-logical command
-        '''
-
-        self._start_write_arithmetic(command)
-        self._mid_write_arithmetic(command)
-        self._end_write_arithmetic()
-
     def _start_write_push(self, index):
-        #D=i
+        '''
+        D=i
+        '''
         self.file.write("@{}\n".format(index))
         self.file.write("D=A\n")
 
     def _mid_write_push(self, segment, index):
-
-        #D=segment+i (except for static: D=@xyz$i)
+        '''
+        If static: D=@xyz$i
+        Else: D=<segment>+i
+        '''
         match segment:
             case 'local':
                 self.file.write("@LCL\n")
@@ -241,7 +305,10 @@ class CodeWriter:
         self.file.write("D=M\n")
 
     def _end_write_push(self):
-
+        '''
+        RAM[SP]=D
+        SP++
+        '''
         #RAM[SP]=D
         self.file.write("@SP\n")
         self.file.write("A=M\n")
@@ -250,16 +317,11 @@ class CodeWriter:
         self.file.write("@SP\n")
         self.file.write("M=M+1\n")
 
-    def write_push(self, segment, index):
-
-        if segment != 'static':
-            self._start_write_push(index)
-        if segment != 'constant':
-            self._mid_write_push(segment, index)
-        self._end_write_push()
-
     def _start_write_pop(self, segment, index):
-        # D=i (or D=@xyz$i)
+        '''
+        If static: D=@xyz$i
+        Else: D=i
+        '''
         if segment == 'static':
             self.file.write("@{}${}\n".format(self.file_id, index))
         else:
@@ -267,8 +329,9 @@ class CodeWriter:
         self.file.write("D=A\n")
 
     def _mid_write_pop(self, segment):
-
-        # D=i+segment
+        '''
+        D=i+<segment>
+        '''
         match segment:
             case 'local':
                 self.file.write("@LCL\n")
@@ -290,7 +353,11 @@ class CodeWriter:
                 self.file.write("D=D+A\n")
 
     def _end_write_pop(self):
-
+        '''
+        RAM[R13]=RAM[segment+i]
+        D=RAM[--SP]
+        RAM[segment+i]=D
+        '''
         # RAM[R13] = RAM[segment+i]
         self.file.write("@R13\n")
         self.file.write("M=D\n")
@@ -303,16 +370,6 @@ class CodeWriter:
         self.file.write("@R13\n")
         self.file.write("A=M\n")
         self.file.write("M=D\n")
-
-    def write_pop(self, segment, index):
-
-        self._start_write_pop(segment, index)
-        self._mid_write_pop(segment)
-        self._end_write_pop()
-
-    def close(self):
-        # close file
-        self.file.close()
 
 
 def get_files(path):
@@ -355,5 +412,10 @@ if __name__ == '__main__':
 
     # parse all files in `file_list`
 
-    for file in file_list:
-        Parser(file, write_path).parse()
+    for i, file in enumerate(file_list):
+        if i == len(file_list) - 1:
+            # flag final item for writing infinite loop
+            Parser(file, write_path, final_parser=True).parse()
+        else:
+            Parser(file, write_path).parse()
+
