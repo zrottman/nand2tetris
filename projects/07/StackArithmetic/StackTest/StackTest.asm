@@ -1,3 +1,6 @@
+//
+// StackTest
+//
 //push constant 17
 @17
 D=A
@@ -30,8 +33,8 @@ D=0
 0;JMP
 (TRUE.StackTest$0)
 D=-1
-(ENDIF.StackTest$0
-)@SP
+(ENDIF.StackTest$0)
+@SP
 A=M
 M=D
 @SP
@@ -68,8 +71,8 @@ D=0
 0;JMP
 (TRUE.StackTest$1)
 D=-1
-(ENDIF.StackTest$1
-)@SP
+(ENDIF.StackTest$1)
+@SP
 A=M
 M=D
 @SP
@@ -106,8 +109,8 @@ D=0
 0;JMP
 (TRUE.StackTest$2)
 D=-1
-(ENDIF.StackTest$2
-)@SP
+(ENDIF.StackTest$2)
+@SP
 A=M
 M=D
 @SP
@@ -144,8 +147,8 @@ D=0
 0;JMP
 (TRUE.StackTest$3)
 D=-1
-(ENDIF.StackTest$3
-)@SP
+(ENDIF.StackTest$3)
+@SP
 A=M
 M=D
 @SP
@@ -182,8 +185,8 @@ D=0
 0;JMP
 (TRUE.StackTest$4)
 D=-1
-(ENDIF.StackTest$4
-)@SP
+(ENDIF.StackTest$4)
+@SP
 A=M
 M=D
 @SP
@@ -220,8 +223,8 @@ D=0
 0;JMP
 (TRUE.StackTest$5)
 D=-1
-(ENDIF.StackTest$5
-)@SP
+(ENDIF.StackTest$5)
+@SP
 A=M
 M=D
 @SP
@@ -258,8 +261,8 @@ D=0
 0;JMP
 (TRUE.StackTest$6)
 D=-1
-(ENDIF.StackTest$6
-)@SP
+(ENDIF.StackTest$6)
+@SP
 A=M
 M=D
 @SP
@@ -296,8 +299,8 @@ D=0
 0;JMP
 (TRUE.StackTest$7)
 D=-1
-(ENDIF.StackTest$7
-)@SP
+(ENDIF.StackTest$7)
+@SP
 A=M
 M=D
 @SP
@@ -334,8 +337,8 @@ D=0
 0;JMP
 (TRUE.StackTest$8)
 D=-1
-(ENDIF.StackTest$8
-)@SP
+(ENDIF.StackTest$8)
+@SP
 A=M
 M=D
 @SP

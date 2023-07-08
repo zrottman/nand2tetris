@@ -1,3 +1,6 @@
+//
+// StaticTest
+//
 //push constant 111
 @111
 D=A
