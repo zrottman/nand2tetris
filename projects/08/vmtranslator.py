@@ -23,32 +23,24 @@ class Parser:
 
     def __init__(self, read_path, write_path, final_parser=False):
         self.path = read_path               # input file path
-        self.line = ''                      # current line
         self.file = open(self.path, 'r')    # file object
-        self.final_parser = final_parser    # flag final .vm file
 
         # instantiate CodeWriter with root and write path args
         self.writer = CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
 
-    def has_more_commands(self):
-        '''
-        Return true if self.line is not empty.
-        '''
-        return self.line != ''
-
     def advance(self):
         '''
-        Advance self.line to next non-empty line after stripping comments.
+        Advance to next non-empty line after stripping comments and return `line`
         '''
         while (line := self.file.readline()) and not (line := line.split('//')[0].strip()):
             continue
-        self.line = line
+        return line
 
-    def command_type(self):
+    def command_type(self, line):
         '''
         Return command type.
         '''
-        command = self.line.split()[0]   # get first element from self.line
+        command = line.split()[0]   # get first element from `line`
         match command:
             case 'push':
                 return Command.PUSH
@@ -71,58 +63,48 @@ class Parser:
             case _:
                 pass
 
-    def arg_1(self):
+    def arg_1(self, line):
         '''
-        If arithmetic command, returns first element from self.line, else 
+        If arithmetic command, returns first element from line, else 
         returns second element.
         '''
-        if self.command_type() == Command.ARITHMETIC:
-            return self.line.split()[0]
+        if self.command_type(line) == Command.ARITHMETIC:
+            return line.split()[0]
         else:
-            return self.line.split()[1]
+            return line.split()[1]
 
-    def arg_2(self):
+    def arg_2(self, line):
         '''
-        Return third element from self.line
+        Return third element from line
         '''
-        return self.line.split()[2]
+        return line.split()[2]
     
     def parse(self):
         '''
         Main parsing function
         '''
 
-        # Advance to first line
-        self.advance()
-
         # Write filename as comment
         self.writer.write_filename()
 
         # Loop through file and process
-        while self.has_more_commands():
+        while (line := self.advance()):
 
-            # write VM line (for debugging/commenting)
-            self.writer.write_line(self.line)
+            # write VM line as comment
+            self.writer.write_vm_line(line)
 
-            # parse line
-            match self.command_type():
+            # parse and write line
+            match self.command_type(line):
 
                 case Command.PUSH:
-                    self.writer.write_push(self.arg_1(), self.arg_2())
+                    self.writer.write_push(self.arg_1(line), self.arg_2(line))
                 case Command.POP:
-                    self.writer.write_pop(self.arg_1(), self.arg_2())
+                    self.writer.write_pop(self.arg_1(line), self.arg_2(line))
                 case Command.ARITHMETIC:
-                    self.writer.write_arithmetic(self.arg_1())
+                    self.writer.write_arithmetic(self.arg_1(line))
                 case _:
                     pass
 
-            # advance to next line
-            self.advance()
-
-        # write infinite loop if final parser (when parsing multiple .vm files)
-        if self.final_parser:
-            self.writer.write_inf()
-            
         # Close input file
         self.file.close()
 
@@ -141,13 +123,13 @@ class CodeWriter:
 
     def write_filename(self):
         '''
-        Write current .vm filename for debugging purposes
+        Write current .vm filename as comment
         '''
         self.file.write("//\n// {}\n//\n".format(self.file_id))
 
-    def write_line(self, line):
+    def write_vm_line(self, line):
         '''
-        Write VM line in comments for debugging
+        Write original VM line as comment
         '''
         self.file.write("//" + line + "\n")
 
@@ -177,15 +159,6 @@ class CodeWriter:
         self._start_write_arithmetic(command)
         self._mid_write_arithmetic(command)
         self._end_write_arithmetic()
-
-    def write_inf(self):
-        '''
-        Write infinite loop at end of final .vm file parsed.
-        '''
-        self.file.write("// infinite loop\n")
-        self.file.write("(END)\n")
-        self.file.write("@END\n")
-        self.file.write("0;JMP\n")
 
     def close(self):
         '''
@@ -278,7 +251,7 @@ class CodeWriter:
 
     def _mid_write_push(self, segment, index):
         '''
-        If static: D=@xyz$i
+        If static: D=@xyz.i
         Else: D=<segment>+i
         '''
         match segment:
@@ -295,7 +268,7 @@ class CodeWriter:
                 self.file.write("@THAT\n")
                 self.file.write("A=D+M\n")
             case 'static':
-                self.file.write("@{}${}\n".format(self.file_id, index))
+                self.file.write("@{}.{}\n".format(self.file_id, index))
             case 'temp':
                 self.file.write("@5\n")
                 self.file.write("A=D+A\n")
@@ -319,11 +292,11 @@ class CodeWriter:
 
     def _start_write_pop(self, segment, index):
         '''
-        If static: D=@xyz$i
+        If static: D=@xyz.i
         Else: D=i
         '''
         if segment == 'static':
-            self.file.write("@{}${}\n".format(self.file_id, index))
+            self.file.write("@{}.{}\n".format(self.file_id, index))
         else:
             self.file.write("@{}\n".format(index))
         self.file.write("D=A\n")
@@ -411,11 +384,6 @@ if __name__ == '__main__':
     file_list, write_path = get_files(path)
 
     # parse all files in `file_list`
-
-    for i, file in enumerate(file_list):
-        if i == len(file_list) - 1:
-            # flag final item for writing infinite loop
-            Parser(file, write_path, final_parser=True).parse()
-        else:
-            Parser(file, write_path).parse()
+    for file in file_list:
+        Parser(file, write_path).parse()
 
