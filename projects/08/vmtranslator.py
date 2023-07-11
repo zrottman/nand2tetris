@@ -177,7 +177,7 @@ class CodeWriter:
 
     def write_goto(self, label):
         self.file.write("@{}\n".format(label));
-        self.file.write("0;JMP]n");
+        self.file.write("0;JMP\n");
 
     def write_if(self, label):
         # pop top from stack
