@@ -166,7 +166,3 @@ A=M
 M=D+M
 @SP
 M=M+1
-// infinite loop
-(END)
-@END
-0;JMP
