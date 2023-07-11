@@ -10,10 +10,10 @@ test project chip:
 debug project chip:
     ./tools/TextComparer.sh ./projects/{{project}}/{{chip}}.cmp ./projects/{{project}}/{{chip}}.out
     
-test07 name:
+testvm project name:
     # delete projects/07/../<name>.asm 
-    find projects/07/ -name {{name}}.asm -type f -delete 2>/dev/null
+    find projects/{{project}}/ -name {{name}}.asm -type f -delete 2>/dev/null
     # translate all asm files
-    find projects/07/ -name {{name}}.vm -type f -exec python3 projects/07/vmtranslator.py {} \;
+    find projects/{{project}}/ -name {{name}}.vm -type f -exec python3 projects/{{project}}/vmtranslator.py {} \;
     # test
-    find projects/07 -name {{name}}.tst -type f -exec ./tools/CPUEmulator.sh {} \;
+    find projects/{{project}} -name {{name}}.tst -type f -exec ./tools/CPUEmulator.sh {} \;
