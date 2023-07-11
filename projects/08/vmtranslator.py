@@ -102,6 +102,18 @@ class Parser:
                     self.writer.write_pop(self.arg_1(line), self.arg_2(line))
                 case Command.ARITHMETIC:
                     self.writer.write_arithmetic(self.arg_1(line))
+                case Command.LABEL:
+                    self.writer.write_label(self.arg_1(line))
+                case Command.GOTO:
+                    self.writer.write_goto(self.arg_1(line))
+                case Command.IF:
+                    self.writer.write_if(self.arg_1(line))
+                case Command.FUNCTION:
+                    pass
+                case Command.CALL:
+                    pass
+                case Command.RETURN:
+                    pass
                 case _:
                     pass
 
@@ -160,6 +172,23 @@ class CodeWriter:
         self._mid_write_arithmetic(command)
         self._end_write_arithmetic()
 
+    def write_label(self, label):
+        self.file.write("({})\n".format(label));
+
+    def write_goto(self, label):
+        self.file.write("@{}\n".format(label));
+        self.file.write("0;JMP]n");
+
+    def write_if(self, label):
+        # pop top from stack
+        self.file.write("@SP\n")
+        self.file.write("M=M-1\n")
+        self.file.write("A=M\n")
+        self.file.write("D=M\n")
+        # if 0, jump
+        self.file.write("@{}\n".format(label))
+        self.file.write("D;JNE\n")
+    
     def close(self):
         '''
         Close write file
