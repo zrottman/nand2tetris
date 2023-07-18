@@ -28,6 +28,9 @@ class Parser:
         # instantiate CodeWriter with root and write path args
         self.writer = CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
 
+
+
+
     def advance(self):
         '''
         Advance to next non-empty line after stripping comments and return `line`
@@ -133,6 +136,15 @@ class CodeWriter:
         # open output file
         self.file = open(self.write_path, 'a')
 
+        self.commands = {
+                'inc': '\n'.join(['@SP', 'M=M+1']),
+                'dec': '\n'.join(['@SP', 'M=M-1']),
+                'RAM[SP]=D': '\n'.join(['@SP', 'A=M', 'M=D']),
+                }
+        self.commands.update({ 'A=RAM[--SP]': '\n'.join([self.commands['dec'], 'A=M']) })
+        self.commands.update({ 'D=RAM[--SP]': '\n'.join([self.commands['A=RAM[--SP]'], 'D=M']) })
+        self.commands.update({ 'binary_load': '\n'.join([self.commands['D=RAM[--SP]'], self.commands['A=RAM[--SP]']]) })
+
     def write_filename(self):
         '''
         Write current .vm filename as comment
@@ -149,11 +161,26 @@ class CodeWriter:
         '''
         Write push command
         '''
-        if segment != 'static':
-            self._start_write_push(index)
-        if segment != 'constant':
-            self._mid_write_push(segment, index)
-        self._end_write_push()
+        asm = ""
+        address = {
+                "local": "@LCL", "argument": "@ARG", "this": "@THIS", 
+                "that": "@THAT", "static": "@{}.{}".format(self.file_id, index),
+                "temp": "@{}".format(5+int(index)), "pointer": "@{}".format(3+int(index))
+                }
+
+        if segment in ["local", "argument", "this", "that"]:
+            asm = "\n".join(["@{}".format(index), "D=A", address[segment], "A=D+M", "D=M", ""])
+
+        elif segment in ["static", "temp", "pointer"]:
+            asm = "\n".join([address[segment], "D=M", ""])
+
+        elif segment == "constant":
+            asm = "\n".join(["@{}".format(index), "D=A", ""])
+
+        #RAM[SP]=D; SP++
+        asm += '\n'.join([self.commands['RAM[SP]=D'], self.commands['inc'], ''])
+
+        self.file.write(asm)
 
     def write_pop(self, segment, index):
         '''
@@ -181,13 +208,29 @@ class CodeWriter:
 
     def write_if(self, label):
         # pop top from stack
-        self.file.write("@SP\n")
-        self.file.write("M=M-1\n")
+        self.file.write('\n'.join([self.commands['dec'], '']))
         self.file.write("A=M\n")
         self.file.write("D=M\n")
         # if 0, jump
         self.file.write("@{}\n".format(label))
         self.file.write("D;JNE\n")
+
+    def write_function(self, label, local_vars):
+
+        #"{}.{}".format(self.file_id, label) # Foo.bar
+
+        '''
+        - local variables segment initialize to zeros
+        - this, that, pointer, temp are undefined
+        - push return value back to stack
+        '''
+        pass
+
+    def write_call(self, function):
+        pass
+
+    def write_return(self):
+        pass
     
     def close(self):
         '''
@@ -201,17 +244,14 @@ class CodeWriter:
         Else: set D=RAM[--SP] and then A=RAM[--SP] (two SP decrements)
         '''
         # SP--
-        self.file.write("@SP\n")
-        self.file.write("M=M-1\n")
-        self.file.write("A=M\n")
+        self.file.write('\n'.join([self.commands['A=RAM[--SP]'], '']))
 
         if command != 'neg' and command != 'not':
             # D=RAM[SP]
             self.file.write("D=M\n")
 
             # A=RAM[--SP]
-            self.file.write("@SP\n")
-            self.file.write("M=M-1\n")
+            self.file.write('\n'.join([self.commands['dec'], '']))
             self.file.write("A=M\n")
 
     def _mid_write_arithmetic(self, command):
@@ -265,59 +305,7 @@ class CodeWriter:
                     self.file.write("M=!M\n")
 
     def _end_write_arithmetic(self):
-        '''
-        SP++
-        '''
-        self.file.write("@SP\n")
-        self.file.write("M=M+1\n")
-
-    def _start_write_push(self, index):
-        '''
-        D=i
-        '''
-        self.file.write("@{}\n".format(index))
-        self.file.write("D=A\n")
-
-    def _mid_write_push(self, segment, index):
-        '''
-        If static: D=@xyz.i
-        Else: D=<segment>+i
-        '''
-        match segment:
-            case 'local':
-                self.file.write("@LCL\n")
-                self.file.write("A=D+M\n")
-            case 'argument':
-                self.file.write("@ARG\n")
-                self.file.write("A=D+M\n")
-            case 'this':
-                self.file.write("@THIS\n")
-                self.file.write("A=D+M\n")
-            case 'that':
-                self.file.write("@THAT\n")
-                self.file.write("A=D+M\n")
-            case 'static':
-                self.file.write("@{}.{}\n".format(self.file_id, index))
-            case 'temp':
-                self.file.write("@5\n")
-                self.file.write("A=D+A\n")
-            case 'pointer':
-                self.file.write("@3\n")
-                self.file.write("A=D+A\n")
-        self.file.write("D=M\n")
-
-    def _end_write_push(self):
-        '''
-        RAM[SP]=D
-        SP++
-        '''
-        #RAM[SP]=D
-        self.file.write("@SP\n")
-        self.file.write("A=M\n")
-        self.file.write("M=D\n")
-        #SP++
-        self.file.write("@SP\n")
-        self.file.write("M=M+1\n")
+        self.file.write('\n'.join([self.commands['inc'], '']))
 
     def _start_write_pop(self, segment, index):
         '''
@@ -364,10 +352,7 @@ class CodeWriter:
         self.file.write("@R13\n")
         self.file.write("M=D\n")
         # D=RAM[--SP]
-        self.file.write("@SP\n")
-        self.file.write("M=M-1\n")
-        self.file.write("A=M\n")
-        self.file.write("D=M\n")
+        self.file.write('\n'.join([self.commands['D=RAM[--SP]'], '']))
         # RAM[segment+i]=D
         self.file.write("@R13\n")
         self.file.write("A=M\n")
@@ -409,8 +394,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # get path for vm file or directory with multiple vm files
-    path = sys.argv[1]
-    file_list, write_path = get_files(path)
+    read_path = sys.argv[1]
+    file_list, write_path = get_files(read_path)
 
     # parse all files in `file_list`
     for file in file_list:
