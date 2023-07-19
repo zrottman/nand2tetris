@@ -28,9 +28,6 @@ class Parser:
         # instantiate CodeWriter with root and write path args
         self.writer = CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
 
-
-
-
     def advance(self):
         '''
         Advance to next non-empty line after stripping comments and return `line`
@@ -99,10 +96,8 @@ class Parser:
             # parse and write line
             match self.command_type(line):
 
-                case Command.PUSH:
-                    self.writer.write_push(self.arg_1(line), self.arg_2(line))
-                case Command.POP:
-                    self.writer.write_pop(self.arg_1(line), self.arg_2(line))
+                case Command.PUSH | Command.POP:
+                    self.writer.write_pushpop(self.command_type(line), self.arg_1(line), self.arg_2(line))
                 case Command.ARITHMETIC:
                     self.writer.write_arithmetic(self.arg_1(line))
                 case Command.LABEL:
@@ -137,13 +132,20 @@ class CodeWriter:
         self.file = open(self.write_path, 'a')
 
         self.commands = {
-                'inc': '\n'.join(['@SP', 'M=M+1']),
-                'dec': '\n'.join(['@SP', 'M=M-1']),
-                'RAM[SP]=D': '\n'.join(['@SP', 'A=M', 'M=D']),
+                "inc": "\n".join(["@SP", "M=M+1"]),
+                "dec": "\n".join(["@SP", "M=M-1"]),
                 }
+        self.commands.update({ 
+                "push": "\n".join(["@SP", "A=M", "M=D", self.commands['inc']]),
+                "pop": "\n".join(["@R13", "M=D", self.commands['dec'], "A=M", "D=M", "@R13", "A=M", "M=D"]),
+                "unary_load": "\n".join([self.commands['dec'], "A=M"]), 
+                })
+        self.commands.update({ 
+                "binary_load": "\n".join([self.commands['unary_load'], "D=M", self.commands['unary_load']]) 
+                })
+
         self.commands.update({ 'A=RAM[--SP]': '\n'.join([self.commands['dec'], 'A=M']) })
         self.commands.update({ 'D=RAM[--SP]': '\n'.join([self.commands['A=RAM[--SP]'], 'D=M']) })
-        self.commands.update({ 'binary_load': '\n'.join([self.commands['D=RAM[--SP]'], self.commands['A=RAM[--SP]']]) })
 
     def write_filename(self):
         '''
@@ -157,11 +159,11 @@ class CodeWriter:
         '''
         self.file.write("//" + line + "\n")
 
-    def write_push(self, segment, index):
+    def write_pushpop(self, command, segment, index):
         '''
-        Write push command
+        Write push and pop commands
         '''
-        asm = ""
+        asm = None 
         address = {
                 "local": "@LCL", "argument": "@ARG", "this": "@THIS", 
                 "that": "@THAT", "static": "@{}.{}".format(self.file_id, index),
@@ -169,74 +171,77 @@ class CodeWriter:
                 }
 
         if segment in ["local", "argument", "this", "that"]:
-            asm = "\n".join(["@{}".format(index), "D=A", address[segment], "A=D+M", "D=M", ""])
+            match command:
+                case Command.PUSH:
+                    asm = "\n".join(["@{}".format(index), "D=A", address[segment], "A=D+M", "D=M", self.commands['push'], ""])
+                case Command.POP:
+                    asm = "\n".join(["@{}".format(index), "D=A", address[segment], "D=D+M"], self.commands['pop'], "")
 
         elif segment in ["static", "temp", "pointer"]:
-            asm = "\n".join([address[segment], "D=M", ""])
+            match command:
+                case Command.PUSH:
+                    asm = "\n".join([address[segment], "D=M", self.commands['push'], ""])
+                case Command.POP:
+                    asm = "\n".join([address[segment], "D=A"], self.commands['ppop'], "")
 
-        elif segment == "constant":
-            asm = "\n".join(["@{}".format(index), "D=A", ""])
+        elif segment == "constant" and command == Command.PUSH:
+            asm = "\n".join(["@{}".format(index), "D=A", self.commands['push'], ""])
 
-        #RAM[SP]=D; SP++
-        asm += '\n'.join([self.commands['RAM[SP]=D'], self.commands['inc'], ''])
+        assert asm is not None
 
         self.file.write(asm)
-
-    def write_pop(self, segment, index):
-        '''
-        Write pop command
-        '''
-
-        self._start_write_pop(segment, index)
-        self._mid_write_pop(segment)
-        self._end_write_pop()
 
     def write_arithmetic(self, command):
         '''
         Write arithmetic commend
         '''
-        self._start_write_arithmetic(command)
-        self._mid_write_arithmetic(command)
-        self._end_write_arithmetic()
+        asm = None
 
-    def write_label(self, label):
-        self.file.write("({})\n".format(label));
+        # unary computation
+        if command in ["neg", "not"]:
+            match command:
+                case "neg":
+                    asm = "\n".join([self.commands['unary_load'], "M=-M", self.commands['inc'], ""])
+                case "not":
+                    asm = "\n".join([self.commands['unary_load'], "M=!M", self.commands['inc'], ""])
 
-    def write_goto(self, label):
-        self.file.write("@{}\n".format(label));
-        self.file.write("0;JMP\n");
+        # binary computation
+        elif command in ["add", "sub", "and", "or"]:
+            match command:
+                case "add":
+                    asm = "\n".join([self.commands['binary_load'], "M=D+M", self.commands['inc'], ""])
+                case "sub":
+                    asm = "\n".join([self.commands['binary_load'], "M=M-D", self.commands['inc'], ""])
+                case "and":
+                    asm = "\n".join([self.commands['binary_load'], "M=D&M", self.commands['inc'], ""])
+                case "or":
+                    asm = "\n".join([self.commands['binary_load'], "M=D|M", self.commands['inc'], ""])
 
-    def write_if(self, label):
-        # pop top from stack
-        self.file.write('\n'.join([self.commands['dec'], '']))
-        self.file.write("A=M\n")
-        self.file.write("D=M\n")
-        # if 0, jump
-        self.file.write("@{}\n".format(label))
-        self.file.write("D;JNE\n")
+        # binary comparison
+        elif command in ["eq", "gt", "lt"]:
+            jumps = { "eq": "D;JEQ", "gt": "D;JLT", "lt": "D;JGT" }
+            asm = "\n".join([
+                self.commands['binary_load'], 
+                "D=D-M", 
+                "@TRUE.{}${}".format(self.file_id, self.counter), 
+                jumps[command], 
+                "D=0", 
+                "@ENDIF.{}${}".format(self.file_id, self.counter), 
+                "0;JMP", 
+                "(TRUE.{}${})".format(self.file_id, self.counter),
+                "D=-1",
+                "(ENDIF.{}${})".format(self.file_id, self.counter),
+                "@SP",
+                "A=M",
+                "M=D",
+                self.commands['inc'],
+                ""
+                ])
+            self.counter += 1
 
-    def write_function(self, label, local_vars):
+        assert asm is not None
 
-        #"{}.{}".format(self.file_id, label) # Foo.bar
-
-        '''
-        - local variables segment initialize to zeros
-        - this, that, pointer, temp are undefined
-        - push return value back to stack
-        '''
-        pass
-
-    def write_call(self, function):
-        pass
-
-    def write_return(self):
-        pass
-    
-    def close(self):
-        '''
-        Close write file
-        '''
-        self.file.close()
+        self.file.write(asm)
 
     def _start_write_arithmetic(self, command):
         '''
@@ -307,57 +312,44 @@ class CodeWriter:
     def _end_write_arithmetic(self):
         self.file.write('\n'.join([self.commands['inc'], '']))
 
-    def _start_write_pop(self, segment, index):
-        '''
-        If static: D=@xyz.i
-        Else: D=i
-        '''
-        if segment == 'static':
-            self.file.write("@{}.{}\n".format(self.file_id, index))
-        else:
-            self.file.write("@{}\n".format(index))
-        self.file.write("D=A\n")
+    def write_label(self, label):
+        self.file.write("({})\n".format(label));
 
-    def _mid_write_pop(self, segment):
-        '''
-        D=i+<segment>
-        '''
-        match segment:
-            case 'local':
-                self.file.write("@LCL\n")
-                self.file.write("D=D+M\n")
-            case 'argument':
-                self.file.write("@ARG\n")
-                self.file.write("D=D+M\n")
-            case 'this':
-                self.file.write("@THIS\n")
-                self.file.write("D=D+M\n")
-            case 'that':
-                self.file.write("@THAT\n")
-                self.file.write("D=D+M\n")
-            case 'temp':
-                self.file.write("@5\n")
-                self.file.write("D=D+A\n")
-            case 'pointer':
-                self.file.write("@3\n")
-                self.file.write("D=D+A\n")
+    def write_goto(self, label):
+        self.file.write("@{}\n".format(label));
+        self.file.write("0;JMP\n");
 
-    def _end_write_pop(self):
-        '''
-        RAM[R13]=RAM[segment+i]
-        D=RAM[--SP]
-        RAM[segment+i]=D
-        '''
-        # RAM[R13] = RAM[segment+i]
-        self.file.write("@R13\n")
-        self.file.write("M=D\n")
-        # D=RAM[--SP]
-        self.file.write('\n'.join([self.commands['D=RAM[--SP]'], '']))
-        # RAM[segment+i]=D
-        self.file.write("@R13\n")
+    def write_if(self, label):
+        # pop top from stack
+        self.file.write('\n'.join([self.commands['dec'], '']))
         self.file.write("A=M\n")
-        self.file.write("M=D\n")
+        self.file.write("D=M\n")
+        # if 0, jump
+        self.file.write("@{}\n".format(label))
+        self.file.write("D;JNE\n")
 
+    def write_function(self, label, local_vars):
+
+        #"{}.{}".format(self.file_id, label) # Foo.bar
+
+        '''
+        - local variables segment initialize to zeros
+        - this, that, pointer, temp are undefined
+        - push return value back to stack
+        '''
+        pass
+
+    def write_call(self, function):
+        pass
+
+    def write_return(self):
+        pass
+    
+    def close(self):
+        '''
+        Close write file
+        '''
+        self.file.close()
 
 def get_files(path):
     '''
