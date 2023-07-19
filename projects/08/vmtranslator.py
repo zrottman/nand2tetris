@@ -16,17 +16,14 @@ class Parser:
     Parameters
         read_path: path to input file
         write_path: path to output file
-        final_parser (default False): for projects with multiple .vm files, 
             flags whether current .vm file is the final one, in which case 
             write an infinite loop at program end.
     '''
 
-    def __init__(self, read_path, write_path, final_parser=False):
+    def __init__(self, read_path, write_path, code_writer):
         self.path = read_path               # input file path
         self.file = open(self.path, 'r')    # file object
-
-        # instantiate CodeWriter with root and write path args
-        self.writer = CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
+        self.writer = code_writer # CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
 
     def advance(self):
         '''
@@ -118,8 +115,6 @@ class Parser:
         # Close input file
         self.file.close()
 
-        # Close writer file
-        self.writer.close()
 
 class CodeWriter:
 
@@ -129,7 +124,7 @@ class CodeWriter:
         self.counter = 0                                # for label disambiguation
 
         # open output file
-        self.file = open(self.write_path, 'a')
+        self.file = open(self.write_path, 'w')
 
         self.commands = {
                 "inc": "\n".join(["@SP", "M=M+1"]),
@@ -279,6 +274,7 @@ class CodeWriter:
         '''
         Close write file
         '''
+        self.file.write("// END WRITE\n")
         self.file.close()
 
 def get_files(path):
@@ -319,7 +315,13 @@ if __name__ == '__main__':
     read_path = sys.argv[1]
     file_list, write_path = get_files(read_path)
 
+    # create single codewriter object to pass to parsers
+    codewriter = CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
+
     # parse all files in `file_list`
     for file in file_list:
-        Parser(file, write_path).parse()
+        Parser(file, write_path, codewriter).parse()
+
+    # close codewriter
+    codewriter.close()
 
