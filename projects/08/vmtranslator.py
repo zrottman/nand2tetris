@@ -144,20 +144,19 @@ class CodeWriter:
                 "binary_load": "\n".join([self.commands['unary_load'], "D=M", self.commands['unary_load']]) 
                 })
 
-        self.commands.update({ 'A=RAM[--SP]': '\n'.join([self.commands['dec'], 'A=M']) })
-        self.commands.update({ 'D=RAM[--SP]': '\n'.join([self.commands['A=RAM[--SP]'], 'D=M']) })
-
     def write_filename(self):
         '''
         Write current .vm filename as comment
         '''
-        self.file.write("//\n// {}\n//\n".format(self.file_id))
+        asm = "\n".join(["//", "// START VM FILE: {}".format(self.file_id), "//", ""])
+        self.file.write(asm)
 
     def write_vm_line(self, line):
         '''
         Write original VM line as comment
         '''
-        self.file.write("//" + line + "\n")
+        asm = "\n".join(["// {}".format(line), ""])
+        self.file.write(asm)
 
     def write_pushpop(self, command, segment, index):
         '''
@@ -242,75 +241,6 @@ class CodeWriter:
         assert asm is not None
 
         self.file.write(asm)
-
-    def _start_write_arithmetic(self, command):
-        '''
-        If unary command: set D=RAM[--SP]
-        Else: set D=RAM[--SP] and then A=RAM[--SP] (two SP decrements)
-        '''
-        # SP--
-        self.file.write('\n'.join([self.commands['A=RAM[--SP]'], '']))
-
-        if command != 'neg' and command != 'not':
-            # D=RAM[SP]
-            self.file.write("D=M\n")
-
-            # A=RAM[--SP]
-            self.file.write('\n'.join([self.commands['dec'], '']))
-            self.file.write("A=M\n")
-
-    def _mid_write_arithmetic(self, command):
-        '''
-        Handle conditional command or binary/unary operation.
-        '''
-
-        if command == 'eq' or command == 'gt' or command == 'lt':
-            # D=y-x
-            self.file.write("D=D-M\n")
-            # set jump destination with unique file/line-specific label
-            self.file.write("@TRUE.{}${}\n".format(self.file_id, self.counter))
-
-            # Jump command
-            match command:
-                case 'eq':
-                    self.file.write("D;JEQ\n")
-                case 'gt':
-                    self.file.write("D;JLT\n")
-                case 'lt':
-                    self.file.write("D;JGT\n")
-
-            # D=0 by default
-            self.file.write("D=0\n")
-            self.file.write("@ENDIF.{}${}\n".format(self.file_id, self.counter))
-            self.file.write("0;JMP\n")
-            # D=-1 if condition is true
-            self.file.write("(TRUE.{}${})\n".format(self.file_id, self.counter))
-            self.file.write("D=-1\n")
-            self.file.write("(ENDIF.{}${})\n".format(self.file_id, self.counter))
-            # RAM[SP]=D
-            self.file.write("@SP\n")
-            self.file.write("A=M\n")
-            self.file.write("M=D\n")
-
-            self.counter += 1
-
-        else:
-            match command:
-                case 'add':
-                    self.file.write("M=D+M\n")
-                case 'sub':
-                    self.file.write("M=M-D\n")
-                case 'and':
-                    self.file.write("M=D&M\n")
-                case 'or':
-                    self.file.write("M=D|M\n")
-                case 'neg':
-                    self.file.write("M=-M\n")
-                case 'not':
-                    self.file.write("M=!M\n")
-
-    def _end_write_arithmetic(self):
-        self.file.write('\n'.join([self.commands['inc'], '']))
 
     def write_label(self, label):
         self.file.write("({})\n".format(label));
