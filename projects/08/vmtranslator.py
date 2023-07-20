@@ -51,9 +51,9 @@ class Parser:
                 return Command.GOTO
             case 'if-goto':
                 return Command.IF
-            case 'Function':
+            case 'function':
                 return Command.FUNCTION
-            case 'Call':
+            case 'call':
                 return Command.CALL
             case 'return':
                 return Command.RETURN
@@ -104,11 +104,11 @@ class Parser:
                 case Command.IF:
                     self.writer.write_if(self.arg_1(line))
                 case Command.FUNCTION:
-                    pass
+                    self.writer.write_function(self.arg_1(line), self.arg_2(line))
                 case Command.CALL:
-                    pass
+                    self.writer.write_call(self.arg_1(line), self.arg_2(line))
                 case Command.RETURN:
-                    pass
+                    self.writer.write_return()
                 case _:
                     pass
 
@@ -153,33 +153,34 @@ class CodeWriter:
         asm = "\n".join(["// {}".format(line), ""])
         self.file.write(asm)
 
-    def write_pushpop(self, command, segment, index):
+    def write_pushpop(self, command, segment, arg):
         '''
         Write push and pop commands
+        TODO: Consider writing temp/pointer commands out in long assembly rather than doing math with python
         '''
         asm = None 
         address = {
                 "local": "@LCL", "argument": "@ARG", "this": "@THIS", 
-                "that": "@THAT", "static": "@{}.{}".format(self.file_id, index),
-                "temp": "@{}".format(5+int(index)), "pointer": "@{}".format(3+int(index))
+                "that": "@THAT", "static": "@{}.{}".format(self.file_id, arg),
+                "temp": "@{}".format(5+int(arg)), "pointer": "@{}".format(3+int(arg))
                 }
 
         if segment in ["local", "argument", "this", "that"]:
             match command:
                 case Command.PUSH:
-                    asm = "\n".join(["@{}".format(index), "D=A", address[segment], "A=D+M", "D=M", self.commands['push'], ""])
+                    asm = "\n".join(["@{}".format(arg), "D=A", address[segment], "A=D+M", "D=M", self.commands['push'], ""])
                 case Command.POP:
-                    asm = "\n".join(["@{}".format(index), "D=A", address[segment], "D=D+M"], self.commands['pop'], "")
+                    asm = "\n".join(["@{}".format(arg), "D=A", address[segment], "D=D+M", self.commands['pop'], ""])
 
         elif segment in ["static", "temp", "pointer"]:
             match command:
                 case Command.PUSH:
                     asm = "\n".join([address[segment], "D=M", self.commands['push'], ""])
                 case Command.POP:
-                    asm = "\n".join([address[segment], "D=A"], self.commands['ppop'], "")
+                    asm = "\n".join([address[segment], "D=A", self.commands['pop'], ""])
 
         elif segment == "constant" and command == Command.PUSH:
-            asm = "\n".join(["@{}".format(index), "D=A", self.commands['push'], ""])
+            asm = "\n".join(["@{}".format(arg), "D=A", self.commands['push'], ""])
 
         assert asm is not None
 
@@ -238,38 +239,68 @@ class CodeWriter:
         self.file.write(asm)
 
     def write_label(self, label):
-        self.file.write("({})\n".format(label));
+        asm = "\n".join(["({})".format(label), ""])
+        self.file.write(asm)
 
     def write_goto(self, label):
-        self.file.write("@{}\n".format(label));
-        self.file.write("0;JMP\n");
+        asm = "\n".join(["@{}".format(label), "0;JMP", ""])
+        self.file.write(asm)
 
     def write_if(self, label):
-        # pop top from stack
-        self.file.write('\n'.join([self.commands['dec'], '']))
-        self.file.write("A=M\n")
-        self.file.write("D=M\n")
-        # if 0, jump
-        self.file.write("@{}\n".format(label))
-        self.file.write("D;JNE\n")
+        asm = "\n".join([self.commands['dec'], "A=M", "D=M", "@{}".format(label), "D;JNE", ""])
+        self.file.write(asm)
 
     def write_function(self, label, local_vars):
-
-        #"{}.{}".format(self.file_id, label) # Foo.bar
-
+        # asm = "\n".join(["({})".format(label), ""]) 
+        self.write_label(label)
+        for _ in range(int(local_vars)):
+            # asm = "\n".join(["@LCL", "D=A", "@{}".format(i), "A=D+A", "M=0", "@SP", "M=M+1"])
+            self.write_pushpop(Command.PUSH, "constant", "0");
+        # self.file.write(asm)
+        
+    def write_call(self, function, n):
         '''
-        - local variables segment initialize to zeros
-        - this, that, pointer, temp are undefined
-        - push return value back to stack
+        TODO: rely on self.counter to disambiguate (except for static variables).
         '''
-        pass
+        ret_label = "{}.{}".format(self.file_id, self.counter)
+        asm = "\n".join(["@SP", "D=M", "@5", "D=D-A", "@{}".format(n), "D=D-A", "@ARG", "M=D", "@SP", "D=A", "@LCL", "M=D", ""])
 
-    def write_call(self, function):
-        pass
+        self.write_pushpop(Command.PUSH, "constant", ret_label)
+        self.write_pushpop(Command.PUSH, "constant", "LCL")
+        self.write_pushpop(Command.PUSH, "constant", "ARG")
+        self.write_pushpop(Command.PUSH, "constant", "THIS")
+        self.write_pushpop(Command.PUSH, "constant", "THAT")
+        self.file.write(asm)
+        self.write_goto(function)
+        self.write_label(ret_label)
+
+        self.counter += 1
 
     def write_return(self):
-        pass
-    
+        asm = None
+        asm = "\n".join([
+            # FRAME = LCL
+            "@LCL", "D=M", "@FRAME", "M=D", 
+            # RET = *(FRAME-5)
+            "@5", "D=D-A", "@RET", "M=D", 
+            # *ARG = pop()
+            "// *ARG = pop()",
+            #"@ARG", "D=M",
+            "@SP", "M=M-1", "A=M", "D=M", "@ARG", "A=M", "M=D", "@ARG", "D=M",
+            # SP = ARG+1
+            "@SP", "M=D+1", 
+            # THAT = *(FRAME-1)
+            "@FRAME", "D=M", "@1", "A=D-A", "D=M", "@THAT", "M=D",
+            # THIS = *(FRAME-2)
+            "@FRAME", "D=M", "@2", "A=D-A", "D=M", "@THIS", "M=D",
+            # ARG = *(FRAME-3)
+            "@FRAME", "D=M", "@3", "A=D-A", "D=M", "@ARG", "M=D",
+            # LCL = *(FRAME-4)
+            "@FRAME", "D=M", "@4", "A=D-A", "D=M", "@LCL", "M=D", 
+            # goto RET
+            "@RET", "A=M", "0;JMP", ""])
+        self.file.write(asm)
+
     def close(self):
         '''
         Close write file
