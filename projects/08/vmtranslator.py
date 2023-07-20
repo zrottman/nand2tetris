@@ -15,15 +15,12 @@ class Parser:
 
     Parameters
         read_path: path to input file
-        write_path: path to output file
-            flags whether current .vm file is the final one, in which case 
-            write an infinite loop at program end.
     '''
 
-    def __init__(self, read_path, write_path, code_writer):
-        self.path = read_path               # input file path
-        self.file = open(self.path, 'r')    # file object
-        self.writer = code_writer # CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
+    def __init__(self, read_path, code_writer):
+        self.file = open(read_path, 'r')    # file object
+        self.writer = code_writer 
+        self.writer.set_file_id(read_path.rstrip('/').split('/')[-1])  # for label/static disambiguation
 
     def advance(self):
         '''
@@ -118,10 +115,13 @@ class Parser:
 
 class CodeWriter:
 
-    def __init__(self, file, write_path):
-        self.write_path = write_path + '.asm'           # output file
-        self.file_id = file.rstrip('/').split('/')[-1]  # for label/static disambiguation
+    def __init__(self, write_path):
+        self.write_path = write_path # + '.asm'           # output file
+        print("CodeWriter writing to: {}".format(write_path))
+        #self.file_id = file.rstrip('/').split('/')[-1]  # for label/static disambiguation
         self.counter = 0                                # for label disambiguation
+        self.file_id = None
+
 
         # open output file
         self.file = open(self.write_path, 'w')
@@ -138,6 +138,9 @@ class CodeWriter:
         self.commands.update({ 
                 "binary_load": "\n".join([self.commands['unary_load'], "D=M", self.commands['unary_load']]) 
                 })
+
+    def set_file_id(self, file_id):
+        self.file_id = file_id
 
     def write_filename(self):
         '''
@@ -162,17 +165,17 @@ class CodeWriter:
         address = {
                 "local": "@LCL", "argument": "@ARG", "this": "@THIS", 
                 "that": "@THAT", "static": "@{}.{}".format(self.file_id, arg),
-                "temp": "@{}".format(5+int(arg)), "pointer": "@{}".format(3+int(arg))
+                "temp": "@5", "pointer": "@3"
                 }
 
-        if segment in ["local", "argument", "this", "that"]:
+        if segment in ["local", "argument", "this", "that", "temp", "pointer"]:
             match command:
                 case Command.PUSH:
                     asm = "\n".join(["@{}".format(arg), "D=A", address[segment], "A=D+M", "D=M", self.commands['push'], ""])
                 case Command.POP:
                     asm = "\n".join(["@{}".format(arg), "D=A", address[segment], "D=D+M", self.commands['pop'], ""])
 
-        elif segment in ["static", "temp", "pointer"]:
+        elif segment in ["static"]:
             match command:
                 case Command.PUSH:
                     asm = "\n".join([address[segment], "D=M", self.commands['push'], ""])
@@ -330,7 +333,9 @@ def get_files(path):
             file_path = os.path.join(path, file_name)
             if os.path.isfile(file_path) and file_name.endswith('.vm'):
                 file_list.append(file_path)
-        write_path = path.rstrip('/')
+        write_path = os.path.join(path, os.path.basename(os.path.normpath(path)))
+
+    write_path += ".asm"
 
     return file_list, write_path
 
@@ -347,11 +352,11 @@ if __name__ == '__main__':
     file_list, write_path = get_files(read_path)
 
     # create single codewriter object to pass to parsers
-    codewriter = CodeWriter(read_path.split('.')[0], write_path) # <- improve using pathlib?
+    codewriter = CodeWriter(write_path) # <- improve using pathlib?
 
     # parse all files in `file_list`
     for file in file_list:
-        Parser(file, write_path, codewriter).parse()
+        Parser(file, codewriter).parse()
 
     # close codewriter
     codewriter.close()
