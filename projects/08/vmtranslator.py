@@ -143,7 +143,9 @@ class CodeWriter:
 
     def write_init(self):
         '''
-        TODO: Is this right?
+        Writes bootstrap code at start of ASM file:
+            SP = 256
+            call Sys.init
         '''
         asm = "\n".join(["////////// START BOOTSTRAP", "@256", "D=A", "@SP", "M=D", "// call Sys.init 0", ""])
         self.file.write(asm)
@@ -169,7 +171,6 @@ class CodeWriter:
     def write_pushpop(self, command, segment, arg):
         '''
         Write push and pop commands
-        TODO: Consider writing temp/pointer commands out in long assembly rather than doing math with python
         '''
         asm = None 
         address = {
@@ -259,93 +260,98 @@ class CodeWriter:
         self.file.write(asm)
 
     def write_label(self, label):
+        '''
+        Writes <label> to file:
+            (<label>)
+        '''
         asm = "\n".join(["({})".format(label), ""])
         self.file.write(asm)
 
     def write_goto(self, label):
+        '''
+        Writes goto statement to file:
+            @<label>
+            0;JMP
+        '''
         asm = "\n".join(["@{}".format(label), "0;JMP", ""])
         self.file.write(asm)
 
     def write_if(self, label):
+        '''
+        Writes if-goto statement to file:
+            SP--
+            A=M
+            D=M
+            @<label>
+            D;JNE
+        '''
         asm = "\n".join([self.commands['dec'], "A=M", "D=M", "@{}".format(label), "D;JNE", ""])
         self.file.write(asm)
 
     def write_function(self, label, local_vars):
-        # asm = "\n".join(["({})".format(label), ""]) 
+        '''
+        Writes function def to file:
+            (<label>)       // <- function name
+            push constant 0 // <- repeated `local_vars` times
+        '''
         self.write_label(label)
         for _ in range(int(local_vars)):
-            # asm = "\n".join(["@LCL", "D=A", "@{}".format(i), "A=D+A", "M=0", "@SP", "M=M+1"])
             self.write_pushpop(Command.PUSH, "constant", "0");
-        # self.file.write(asm)
         
     def write_call(self, function, n):
         '''
-        TODO: rely on self.counter to disambiguate (except for static variables).
+        Write `call f n` command to file:
+            push return-address
+            push LCL
+            push ARG
+            push THIS
+            push THAT
+            ARG = SP-n-5
+            LCL = SP
+            goto f
+            (return address)
+        TODO: consider using exclusively self.counter to disambiguate (except for static variables).
         '''
         ret_label = "{}.{}".format(self.file_id, self.counter)
-        asm = "\n".join(["@SP", "D=M", "@5", "D=D-A", "@{}".format(n), "D=D-A", "@ARG", "M=D", "@SP", "D=M", "@LCL", "M=D", ""])
+        asm = "\n".join([
+            "@LCL", "D=M", self.commands['push'],  # push LCL
+            "@ARG", "D=M", self.commands['push'],  # push ARG
+            "@THIS", "D=M", self.commands['push'], # push THIS
+            "@THAT", "D=M", self.commands['push'], # push THAT
+            "@SP", "D=M", "@5", "D=D-A", "@{}".format(n), "D=D-A", "@ARG", "M=D", # ARG = SP-n-5
+            "@SP", "D=M", "@LCL", "M=D", ""        # LCL = SP
+            ])
 
-        self.file.write("// call: push return-address\n")
         self.write_pushpop(Command.PUSH, "constant", ret_label)
-
-        self.file.write("// call: push LCL\n")
-        self.file.write("\n".join(["@LCL", "D=M", self.commands['push'], ""]))
-        #self.write_pushpop(Command.PUSH, "constant", "0") # "0" formerly "LCL"
-
-        self.file.write("// call: push ARG\n")
-        self.file.write("\n".join(["@ARG", "D=M", self.commands['push'], ""]))
-        #self.write_pushpop(Command.PUSH, "constant", "0") # "0" formerly "ARG"
-
-        self.file.write("// call: push THIS\n")
-        self.file.write("\n".join(["@THIS", "D=M", self.commands['push'], ""]))
-        #self.write_pushpop(Command.PUSH, "constant", "0") # "0" formerly "THIS"
-
-        self.file.write("// call: push THAT\n")
-        self.file.write("\n".join(["@THAT", "D=M", self.commands['push'], ""]))
-        #self.write_pushpop(Command.PUSH, "constant", "0") # "0" formerly "THAT"
-
-        self.file.write("// call: ARG = SP-n-5; LCL = SP\n") # <- this seems to be where my bug is
         self.file.write(asm)
-        self.file.write("// call: goto f\n")
         self.write_goto(function)
-        self.file.write("// call: (return-address)\n")
         self.write_label(ret_label)
 
         self.counter += 1
 
     def write_return(self):
-        asm = None
+        '''
+        Write `return` command to file:
+            FRAME = LCL
+            RET = *(FRAME-5)
+            *ARG = pop()
+            SP = ARG+1
+            THAT = *(FRAME-1)
+            THIS = *(FRAME-2)
+            ARG = *(FRAME-3)
+            LCL = *(FRAME-4)
+            goto RET
+        '''
         asm = "\n".join([
-            # FRAME = LCL
-            "// return: FRAME = LCL",
-            "@LCL", "D=M", "@FRAME", "M=D", 
-            # RET = *(FRAME-5)
-            "// return: RET = *(FRAME-5)",
-            #"@5", "D=D-A", "@RET", "M=D", 
-            "@5", "A=D-A", "D=M", "@RET", "M=D", 
-            # *ARG = pop()
-            "// return: *ARG = pop()",
-            #"@ARG", "D=M", # Old version -- failed for function call
-            "@SP", "M=M-1", "A=M", "D=M", "@ARG", "A=M", "M=D", "@ARG", "D=M",
-            # SP = ARG+1
-            "// return: SP = ARG+1",
-            "@SP", "M=D+1", 
-            # THAT = *(FRAME-1)
-            "// return: THAT = *(FRAME-1)",
-            "@FRAME", "D=M", "@1", "A=D-A", "D=M", "@THAT", "M=D",
-            # THIS = *(FRAME-2)
-            "// return: THIS = *(FRAME-2)",
-            "@FRAME", "D=M", "@2", "A=D-A", "D=M", "@THIS", "M=D",
-            # ARG = *(FRAME-3)
-            "// return: ARG = *(FRAME-3)",
-            "@FRAME", "D=M", "@3", "A=D-A", "D=M", "@ARG", "M=D",
-            # LCL = *(FRAME-4)
-            "// return: LCL = *(FRAME-4)",
-            "@FRAME", "D=M", "@4", "A=D-A", "D=M", "@LCL", "M=D", 
-            # goto RET
-            "// return: goto RET",
-            "@RET", "A=M", "0;JMP", ""
-            #"@RET", "0;JMP", ""
+            "@LCL", "D=M", "@FRAME", "M=D", # FRAME = LCL
+            "@5", "A=D-A", "D=M", "@RET", "M=D", # RET = *(FRAME-5)
+            "@SP", "M=M-1", "A=M", "D=M", "@ARG", "A=M", "M=D", "@ARG", "D=M", # *ARG = pop()
+            "@SP", "M=D+1", # SP = ARG+1
+            "@FRAME", "D=M", "@1", "A=D-A", "D=M", "@THAT", "M=D", # THAT = *(FRAME-1)
+            "@FRAME", "D=M", "@2", "A=D-A", "D=M", "@THIS", "M=D", # THIS = *(FRAME-2)
+            "@FRAME", "D=M", "@3", "A=D-A", "D=M", "@ARG", "M=D", # ARG = *(FRAME-3)
+            "@FRAME", "D=M", "@4", "A=D-A", "D=M", "@LCL", "M=D", # LCL = *(FRAME-4)
+            "@RET", "A=M", "0;JMP", "" # goto RET
             ])
         self.file.write(asm)
 
