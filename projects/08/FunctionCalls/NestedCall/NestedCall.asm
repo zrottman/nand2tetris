@@ -4,7 +4,6 @@ D=A
 @SP
 M=D
 // call Sys.init 0
-// call: push return-address
 @Bootstrap.0
 D=A
 @SP
@@ -12,7 +11,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push LCL
 @LCL
 D=M
 @SP
@@ -20,7 +18,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push ARG
 @ARG
 D=M
 @SP
@@ -28,7 +25,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THIS
 @THIS
 D=M
 @SP
@@ -36,7 +32,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THAT
 @THAT
 D=M
 @SP
@@ -44,7 +39,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: ARG = SP-n-5; LCL = SP
 @SP
 D=M
 @5
@@ -57,10 +51,8 @@ M=D
 D=M
 @LCL
 M=D
-// call: goto f
 @Sys.init
 0;JMP
-// call: (return-address)
 (Bootstrap.0)
 ////////// START VM FILE: Sys.vm
 // function Sys.init 0
@@ -110,7 +102,6 @@ D=M
 A=M
 M=D
 // call Sys.main 0
-// call: push return-address
 @Sys.vm.1
 D=A
 @SP
@@ -118,7 +109,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push LCL
 @LCL
 D=M
 @SP
@@ -126,7 +116,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push ARG
 @ARG
 D=M
 @SP
@@ -134,7 +123,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THIS
 @THIS
 D=M
 @SP
@@ -142,7 +130,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THAT
 @THAT
 D=M
 @SP
@@ -150,7 +137,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: ARG = SP-n-5; LCL = SP
 @SP
 D=M
 @5
@@ -163,10 +149,8 @@ M=D
 D=M
 @LCL
 M=D
-// call: goto f
 @Sys.main
 0;JMP
-// call: (return-address)
 (Sys.vm.1)
 // pop temp 1
 @1
@@ -343,7 +327,6 @@ M=D
 @SP
 M=M+1
 // call Sys.add12 1
-// call: push return-address
 @Sys.vm.2
 D=A
 @SP
@@ -351,7 +334,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push LCL
 @LCL
 D=M
 @SP
@@ -359,7 +341,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push ARG
 @ARG
 D=M
 @SP
@@ -367,7 +348,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THIS
 @THIS
 D=M
 @SP
@@ -375,7 +355,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THAT
 @THAT
 D=M
 @SP
@@ -383,7 +362,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: ARG = SP-n-5; LCL = SP
 @SP
 D=M
 @5
@@ -396,10 +374,8 @@ M=D
 D=M
 @LCL
 M=D
-// call: goto f
 @Sys.add12
 0;JMP
-// call: (return-address)
 (Sys.vm.2)
 // pop temp 0
 @0

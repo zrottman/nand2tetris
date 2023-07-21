@@ -4,7 +4,6 @@ D=A
 @SP
 M=D
 // call Sys.init 0
-// call: push return-address
 @Bootstrap.0
 D=A
 @SP
@@ -12,7 +11,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push LCL
 @LCL
 D=M
 @SP
@@ -20,7 +18,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push ARG
 @ARG
 D=M
 @SP
@@ -28,7 +25,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THIS
 @THIS
 D=M
 @SP
@@ -36,7 +32,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THAT
 @THAT
 D=M
 @SP
@@ -44,7 +39,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: ARG = SP-n-5; LCL = SP
 @SP
 D=M
 @5
@@ -57,10 +51,8 @@ M=D
 D=M
 @LCL
 M=D
-// call: goto f
 @Sys.init
 0;JMP
-// call: (return-address)
 (Bootstrap.0)
 ////////// START VM FILE: Main.vm
 // function Main.fibonacci 0
@@ -223,7 +215,6 @@ M=M-D
 @SP
 M=M+1
 // call Main.fibonacci 1
-// call: push return-address
 @Main.vm.2
 D=A
 @SP
@@ -231,7 +222,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push LCL
 @LCL
 D=M
 @SP
@@ -239,7 +229,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push ARG
 @ARG
 D=M
 @SP
@@ -247,7 +236,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THIS
 @THIS
 D=M
 @SP
@@ -255,7 +243,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THAT
 @THAT
 D=M
 @SP
@@ -263,7 +250,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: ARG = SP-n-5; LCL = SP
 @SP
 D=M
 @5
@@ -276,10 +262,8 @@ M=D
 D=M
 @LCL
 M=D
-// call: goto f
 @Main.fibonacci
 0;JMP
-// call: (return-address)
 (Main.vm.2)
 // push argument 0
 @0
@@ -312,7 +296,6 @@ M=M-D
 @SP
 M=M+1
 // call Main.fibonacci 1
-// call: push return-address
 @Main.vm.3
 D=A
 @SP
@@ -320,7 +303,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push LCL
 @LCL
 D=M
 @SP
@@ -328,7 +310,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push ARG
 @ARG
 D=M
 @SP
@@ -336,7 +317,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THIS
 @THIS
 D=M
 @SP
@@ -344,7 +324,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THAT
 @THAT
 D=M
 @SP
@@ -352,7 +331,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: ARG = SP-n-5; LCL = SP
 @SP
 D=M
 @5
@@ -365,10 +343,8 @@ M=D
 D=M
 @LCL
 M=D
-// call: goto f
 @Main.fibonacci
 0;JMP
-// call: (return-address)
 (Main.vm.3)
 // add
 @SP
@@ -454,7 +430,6 @@ M=D
 @SP
 M=M+1
 // call Main.fibonacci 1
-// call: push return-address
 @Sys.vm.4
 D=A
 @SP
@@ -462,7 +437,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push LCL
 @LCL
 D=M
 @SP
@@ -470,7 +444,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push ARG
 @ARG
 D=M
 @SP
@@ -478,7 +451,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THIS
 @THIS
 D=M
 @SP
@@ -486,7 +458,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: push THAT
 @THAT
 D=M
 @SP
@@ -494,7 +465,6 @@ A=M
 M=D
 @SP
 M=M+1
-// call: ARG = SP-n-5; LCL = SP
 @SP
 D=M
 @5
@@ -507,10 +477,8 @@ M=D
 D=M
 @LCL
 M=D
-// call: goto f
 @Main.fibonacci
 0;JMP
-// call: (return-address)
 (Sys.vm.4)
 // label WHILE
 (WHILE)
