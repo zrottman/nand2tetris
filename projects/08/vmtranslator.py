@@ -120,7 +120,7 @@ class CodeWriter:
         print("CodeWriter writing to: {}".format(write_path))
         #self.file_id = file.rstrip('/').split('/')[-1]  # for label/static disambiguation
         self.counter = 0                                # for label disambiguation
-        self.file_id = None
+        self.file_id = "Bootstrap" # Default file id
 
 
         # open output file
@@ -139,6 +139,16 @@ class CodeWriter:
                 "binary_load": "\n".join([self.commands['unary_load'], "D=M", self.commands['unary_load']]) 
                 })
 
+        self.write_init()
+
+    def write_init(self):
+        '''
+        TODO: Is this right?
+        '''
+        asm = "\n".join(["////////// START BOOTSTRAP", "@256", "D=A", "@SP", "M=D", "// call Sys.init 0", ""])
+        self.file.write(asm)
+        self.write_call("Sys.init", "0")
+
     def set_file_id(self, file_id):
         self.file_id = file_id
 
@@ -146,7 +156,7 @@ class CodeWriter:
         '''
         Write current .vm filename as comment
         '''
-        asm = "\n".join(["//", "// START VM FILE: {}".format(self.file_id), "//", ""])
+        asm = "\n".join(["////////// START VM FILE: {}".format(self.file_id), ""])
         self.file.write(asm)
 
     def write_vm_line(self, line):
@@ -168,12 +178,19 @@ class CodeWriter:
                 "temp": "@5", "pointer": "@3"
                 }
 
-        if segment in ["local", "argument", "this", "that", "temp", "pointer"]:
+        if segment in ["local", "argument", "this", "that"]:
             match command:
                 case Command.PUSH:
                     asm = "\n".join(["@{}".format(arg), "D=A", address[segment], "A=D+M", "D=M", self.commands['push'], ""])
                 case Command.POP:
                     asm = "\n".join(["@{}".format(arg), "D=A", address[segment], "D=D+M", self.commands['pop'], ""])
+
+        elif segment in ["temp", "pointer"]:  # TODO clean this up -- try to consolidate
+            match command:
+                case Command.PUSH:
+                    asm = "\n".join(["@{}".format(arg), "D=A", address[segment], "A=D+A", "D=M", self.commands['push'], ""])
+                case Command.POP:
+                    asm = "\n".join(["@{}".format(arg), "D=A", address[segment], "D=D+A", self.commands['pop'], ""])
 
         elif segment in ["static"]:
             match command:
@@ -266,15 +283,32 @@ class CodeWriter:
         TODO: rely on self.counter to disambiguate (except for static variables).
         '''
         ret_label = "{}.{}".format(self.file_id, self.counter)
-        asm = "\n".join(["@SP", "D=M", "@5", "D=D-A", "@{}".format(n), "D=D-A", "@ARG", "M=D", "@SP", "D=A", "@LCL", "M=D", ""])
+        asm = "\n".join(["@SP", "D=M", "@5", "D=D-A", "@{}".format(n), "D=D-A", "@ARG", "M=D", "@SP", "D=M", "@LCL", "M=D", ""])
 
+        self.file.write("// call: push return-address\n")
         self.write_pushpop(Command.PUSH, "constant", ret_label)
-        self.write_pushpop(Command.PUSH, "constant", "LCL")
-        self.write_pushpop(Command.PUSH, "constant", "ARG")
-        self.write_pushpop(Command.PUSH, "constant", "THIS")
-        self.write_pushpop(Command.PUSH, "constant", "THAT")
+
+        self.file.write("// call: push LCL\n")
+        self.file.write("\n".join(["@LCL", "D=M", self.commands['push'], ""]))
+        #self.write_pushpop(Command.PUSH, "constant", "0") # "0" formerly "LCL"
+
+        self.file.write("// call: push ARG\n")
+        self.file.write("\n".join(["@ARG", "D=M", self.commands['push'], ""]))
+        #self.write_pushpop(Command.PUSH, "constant", "0") # "0" formerly "ARG"
+
+        self.file.write("// call: push THIS\n")
+        self.file.write("\n".join(["@THIS", "D=M", self.commands['push'], ""]))
+        #self.write_pushpop(Command.PUSH, "constant", "0") # "0" formerly "THIS"
+
+        self.file.write("// call: push THAT\n")
+        self.file.write("\n".join(["@THAT", "D=M", self.commands['push'], ""]))
+        #self.write_pushpop(Command.PUSH, "constant", "0") # "0" formerly "THAT"
+
+        self.file.write("// call: ARG = SP-n-5; LCL = SP\n") # <- this seems to be where my bug is
         self.file.write(asm)
+        self.file.write("// call: goto f\n")
         self.write_goto(function)
+        self.file.write("// call: (return-address)\n")
         self.write_label(ret_label)
 
         self.counter += 1
@@ -283,25 +317,36 @@ class CodeWriter:
         asm = None
         asm = "\n".join([
             # FRAME = LCL
+            "// return: FRAME = LCL",
             "@LCL", "D=M", "@FRAME", "M=D", 
             # RET = *(FRAME-5)
-            "@5", "D=D-A", "@RET", "M=D", 
+            "// return: RET = *(FRAME-5)",
+            #"@5", "D=D-A", "@RET", "M=D", 
+            "@5", "A=D-A", "D=M", "@RET", "M=D", 
             # *ARG = pop()
-            "// *ARG = pop()",
-            #"@ARG", "D=M",
+            "// return: *ARG = pop()",
+            #"@ARG", "D=M", # Old version -- failed for function call
             "@SP", "M=M-1", "A=M", "D=M", "@ARG", "A=M", "M=D", "@ARG", "D=M",
             # SP = ARG+1
+            "// return: SP = ARG+1",
             "@SP", "M=D+1", 
             # THAT = *(FRAME-1)
+            "// return: THAT = *(FRAME-1)",
             "@FRAME", "D=M", "@1", "A=D-A", "D=M", "@THAT", "M=D",
             # THIS = *(FRAME-2)
+            "// return: THIS = *(FRAME-2)",
             "@FRAME", "D=M", "@2", "A=D-A", "D=M", "@THIS", "M=D",
             # ARG = *(FRAME-3)
+            "// return: ARG = *(FRAME-3)",
             "@FRAME", "D=M", "@3", "A=D-A", "D=M", "@ARG", "M=D",
             # LCL = *(FRAME-4)
+            "// return: LCL = *(FRAME-4)",
             "@FRAME", "D=M", "@4", "A=D-A", "D=M", "@LCL", "M=D", 
             # goto RET
-            "@RET", "A=M", "0;JMP", ""])
+            "// return: goto RET",
+            "@RET", "A=M", "0;JMP", ""
+            #"@RET", "0;JMP", ""
+            ])
         self.file.write(asm)
 
     def close(self):
@@ -339,6 +384,24 @@ def get_files(path):
 
     return file_list, write_path
 
+def add_line_nums(asm_file):
+
+    out = asm_file.split(".asm")[0] + ".numbered.asm"
+    lc = 0
+    write_file = open(out, "w")
+
+    print("Adding line numbers to: {}".format(out))
+
+    with open(asm_file, "r") as f:
+        while (line := f.readline()):
+            if lc % 10 == 0:
+                write_file.write("// line: {}\n".format(lc))
+            write_file.write(line)
+            if not (line.startswith('//') or line.startswith('(')):
+                lc += 1
+
+    write_file.close()
+
 
 if __name__ == '__main__':
 
@@ -360,4 +423,7 @@ if __name__ == '__main__':
 
     # close codewriter
     codewriter.close()
+
+    # write line nums file
+    add_line_nums(write_path)
 
