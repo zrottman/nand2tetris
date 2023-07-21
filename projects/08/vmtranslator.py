@@ -385,7 +385,10 @@ def get_files(path):
     return file_list, write_path
 
 def add_line_nums(asm_file):
-
+    '''
+    Function to generate new file <asm_file>.numbered.asm that inserts line
+    number as comment every 10 lines to assist in debugging.
+    '''
     out = asm_file.split(".asm")[0] + ".numbered.asm"
     lc = 0
     write_file = open(out, "w")
@@ -425,5 +428,5 @@ if __name__ == '__main__':
     codewriter.close()
 
     # write line nums file
-    add_line_nums(write_path)
+    # add_line_nums(write_path)
 
