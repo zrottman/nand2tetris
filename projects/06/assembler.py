@@ -1,5 +1,6 @@
 from enum import Enum
 import sys
+import time
 
 command = Enum('command', ['A_COMMAND', 'C_COMMAND', 'L_COMMAND'])
 
@@ -241,6 +242,8 @@ class SymbolTable:
 
 if __name__ == '__main__':
 
+    start_time = time.time()
+
     parser = Parser(sys.argv[1])
 
     #print(parser.input)
@@ -248,3 +251,5 @@ if __name__ == '__main__':
     parser.parse()
 
     parsed = parser.output
+
+    print("took %s seconds" % (time.time() - start_time))
