@@ -43,8 +43,8 @@ class Tokenizer:
     tokens: list[Token] = field(default=None, init=False)
 
     def __post_init__(self):
-        self.tokens = []
         self.cursor = 0
+        self.tokens = []
 
         self.symbols = ['{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', 
                        '*', '/', '&', '|', '<', '>', '=', '~']
@@ -124,6 +124,15 @@ class Tokenizer:
                 return Token(TokenType.IDENTIFIER, s)
         else:
             self.cursor += 1
+    
+    def tokenize(self):
+        while self.has_more_tokens():
+            if (token := self.get_next_token()):
+                self.tokens.append(token)
+
+    def dump_tokens(self):
+        for token in self.tokens:
+            token.display()
 
 
 def get_path():
@@ -177,9 +186,17 @@ def main():
         # instantiate Tokenizer
         tokenizer = Tokenizer(jack_file)
 
+        '''
         while tokenizer.has_more_tokens():
             if (token := tokenizer.get_next_token()):
                 token.display()
+        '''
+        # tokenize
+        tokenizer.tokenize()
+
+        # dump
+        tokenizer.dump_tokens()
+
         # generate output file path
         # output_file = generate_output_filename(jack_file)
 
