@@ -26,9 +26,15 @@ class Token:
                 TokenType.INT_CONST   : 'integer_constant',
                 TokenType.STRING_CONST: 'string_constant'
                 }
+        self.xml_trans = {
+                '<':'&lt;',
+                '>':'&gt;',
+                '&':'&amp;'
+                }
 
     def display(self):
-        print("<{}>{}</{}>".format(self.tokens[self._type], self.value, self.tokens[self._type]))
+        val =  self.xml_trans.get(self.value, self.value)
+        print("<{}> {} </{}>".format(self.tokens[self._type], val, self.tokens[self._type]))
 
 @dataclass
 class Tokenizer:
