@@ -114,6 +114,32 @@ class Tokenizer:
         for token in self.tokens:
             token.display()
 
+@dataclass
+class Parser:
+
+    tokens         : list[Token]
+    input_filename : str
+    cursor         : int = field(default=0, init=False)
+    output_filename: str = field(init=False)
+
+    def __post_init__(self):
+        self.output_filename = self.create_output_filename(self.input_filename)
+
+    def create_output_filename(self, jack_file):
+        return ''.join([os.path.splitext(jack_file)[0], '.xml'])
+
+    def has_more_tokens(self):
+        return self.cursor < len(self.tokens)
+
+    def get_next_token(self):
+        return self.tokens[self.cursor]
+
+    def parse(self):
+        return self.compile_class()
+
+    def compile_class(self):
+        pass
+
 
 def get_path():
 
@@ -145,8 +171,6 @@ def get_jack_files(path):
     return jack_files
 
 
-def create_output_filename(jack_file):
-    return ''.join([os.path.splitext(jack_file)[0], '.xml'])
 
 
 def main():
@@ -160,28 +184,23 @@ def main():
     # loop through jack files and process 
     for jack_file in jack_files:
 
-        # test print input/output file paths
-        print("{} -> {}".format(jack_file, create_output_filename(jack_file)))
-
         # instantiate Tokenizer
         tokenizer = Tokenizer(jack_file)
 
-        '''
-        while tokenizer.has_more_tokens():
-            if (token := tokenizer.get_next_token()):
-                token.display()
-        '''
         # tokenize
-        tokenizer.tokenize()
+        tokens = tokenizer.tokenize()
 
         # dump
         tokenizer.dump_tokens()
 
-        # generate output file path
-        # output_file = generate_output_filename(jack_file)
+        # parse
+        parser = Parser(tokens, jack_file)
 
-        # 
-        # compilation_engine = CompilationEngine(tokenizer, output_file)
+        # dump to screen
+        # parser.dump()
+
+        # write to file
+        # parser.write()
 
 if __name__ == '__main__':
 
