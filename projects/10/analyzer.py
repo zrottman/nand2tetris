@@ -2,6 +2,7 @@ import argparse
 import os.path
 from dataclasses import dataclass, field
 from enum import Enum
+import typing
 import re
 
 TokenType = Enum('TokenType', ['KEYWORD', 'SYMBOL', 'IDENTIFIER',
@@ -35,50 +36,41 @@ class Token:
 
     def display(self):
         val =  self.xml_trans.get(self.value, self.value)
-        print("<{}> {} </{}>".format(self.tokens.get(self._type, "default"), val, self.tokens.get(self._type, "default")))
+        print("<{}> {} </{}>".format(
+            self.tokens.get(self._type, "default"), 
+            val, 
+            self.tokens.get(self._type, "default")))
 
 @dataclass
 class Tokenizer:
     
-    jack_file: str
-    tokens: list[Token] = field(default=None, init=False)
+    jack_file       : str
+    tokens          : list[Token] = field(default_factory=list, init=False)
+    cursor          : int = field(default=0, init=False)
+    lexical_elements: typing.ClassVar[list[list[typing.Pattern, TokenType]]] = [
+            # numbers
+            [re.compile(r"^\d+"), TokenType.INT_CONST],
+            # strings
+            [re.compile(r"^\"[^\"]*\""), TokenType.STRING_CONST],
+            [re.compile(r"^'[^']*.'"), TokenType.STRING_CONST],
+            # comments
+            [re.compile(r"^//.*"), None],
+            [re.compile(r"^/\*.*\*/", flags=re.DOTALL), None],
+            # whitespace
+            [re.compile(r"^[\s\n]+"), None],
+            # keywords
+            [re.compile(r"""^
+                class | constructor | function | method |
+                field | static | var | int | char | boolean |
+                void | true | false | null | this | let | do |
+                if | else | while | return
+                """, re.X), TokenType.KEYWORD],
+            # symbols
+            [re.compile(r"^[\{\}\(\)\[\]\.\,\;\+\-\*\/\&\|\<\>\=\~]"), TokenType.SYMBOL],
+            # identifiers
+            [re.compile(r"^[a-zA-Z][a-zA-Z0-9\_]*"), TokenType.IDENTIFIER]]
 
     def __post_init__(self):
-        self.cursor = 0
-        self.tokens = []
-
-        self.symbols = ['{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', 
-                       '*', '/', '&', '|', '<', '>', '=', '~']
-
-        self.keywords = ['class', 'constructor', 'function', 'method',
-                    'field', 'static', 'var', 'int', 'char', 'boolean',
-                    'void', 'true', 'false', 'null', 'this', 'let', 'do',
-                    'if', 'else', 'while', 'return']
-
-        self.regex = [
-                # number literals
-                [re.compile(r"\d+"), TokenType.INT_CONST],
-                # string literals
-                [re.compile(r"\"[^\"]*\""), TokenType.STRING_CONST],
-                [re.compile(r"'[^']*.'"), TokenType.STRING_CONST],
-                # comments
-                [re.compile(r"//.*"), None],
-                [re.compile(r"/\*.*\*/", flags=re.DOTALL), None],
-                # whitespace
-                [re.compile(r"[\s\n]+"), None],
-                # keywords
-                [re.compile(r"""
-                    class | constructor | function | method |
-                    field | static | var | int | char | boolean |
-                    void | true | false | null | this | let | do |
-                    if | else | while | return
-                    """, re.X), TokenType.KEYWORD],
-                # symbols
-                [re.compile(r"[\{\}\(\)\[\]\.\,\;\+\-\*\/\&\|\<\>\=\~]"), TokenType.SYMBOL],
-                # identifiers
-                [re.compile(r"[a-zA-Z][a-zA-Z0-9\_]*"), TokenType.IDENTIFIER]
-                ]
-        
         with open(self.jack_file, "r") as f:
             self.jack_code = f.read()
 
