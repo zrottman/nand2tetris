@@ -121,9 +121,11 @@ class Parser:
     input_filename : str
     cursor         : int = field(default=0, init=False)
     output_filename: str = field(init=False)
+    lookahead      : Token = field(init=False)
 
     def __post_init__(self):
         self.output_filename = self.create_output_filename(self.input_filename)
+        self.lookahead = self.get_next_token()
 
     def create_output_filename(self, jack_file):
         return ''.join([os.path.splitext(jack_file)[0], '.xml'])
@@ -134,12 +136,115 @@ class Parser:
     def get_next_token(self):
         return self.tokens[self.cursor]
 
+    def advance_token(self):
+        self.cursor += 1
+        self.lookahead = self.get_next_token()
+
+    def program(self):
+        return {
+                'type': 'Program',
+                'body': self.compile_class() 
+                }
+
+    def literal(self):
+        match self.lookahead._type:
+            case TokenType.INT_CONST:
+                return self.number_literal()
+            case TokenType.STRING_CONST:
+                return self.string_literal()
+        raise SyntaxError("Unexpected Literal")
+
+    def number_literal(self):
+        token = self.eat(TokenType.INT_CONST)
+        return {
+                'type': 'integer constant',
+                'value': int(token.value)
+                }
+
+    def string_literal(self):
+        token = self.eat(TokenType.STRING_CONST)
+        return {
+                'type': 'string constant',
+                'value': token.value
+                }
+    
+    def eat(self, token_type):
+
+        if not self.lookahead:
+            raise SyntaxError("Unexpected end of input, expected {}".format(token_type))
+
+        if self.lookahead._type != token_type:
+            raise SyntaxError("Unexpected token: {}, expected {}".format(token.value, token_type))
+
+        self.advance_token()
+
+        return token
+
+
+
+
     def parse(self):
         return self.compile_class()
 
     def compile_class(self):
+
+        tokens = []
+
+        if self.lookahead.value != 'class':
+            raise SyntaxError("Unexpected token {}".format(self.lookahead.value))
+
+        tokens.append(self.lookahead)
+        self.advance_token()
+
+        if self.lookahead._type != TokenType.IDENTIFIER:
+            raise SyntaxError("Unexpected token {}".format(self.lookahead.value))
+
+        tokens.append(self.lookahead)
+        self.advance_token()
+
+        if self.lookahead.value != "{":
+            raise SyntaxError("Unexpected token {}".format(self.lookahead.value))
+
+        while (class_var_dec := self.compile_class_var_dec()):
+            pass
+
+
+    def compile_subroutine(self):
         pass
 
+    def compile_parameter_list(self):
+        pass
+
+    def compile_var_dec(self):
+
+        pass
+
+    def compile_statements(self):
+        pass
+
+    def compile_do(self):
+        pass
+
+    def compile_let(self):
+        pass
+
+    def compile_while(self):
+        pass
+
+    def compile_return(self):
+        pass
+
+    def compile_if(self):
+        pass
+
+    def compile_expression(self):
+        pass
+
+    def compile_term(self):
+        pass
+
+    def compile_expression_list(self):
+        pass
 
 def get_path():
 
