@@ -107,8 +107,10 @@ class Tokenizer:
         while self.has_more_tokens():
             if (token := self.get_next_token()):
                 self.tokens.append(token)
+        return self.tokens
 
     def dump_tokens(self):
+        print("TOKEN DUMP")
         for token in self.tokens:
             token.display()
 
