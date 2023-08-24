@@ -16,25 +16,23 @@ Keyword = Enum('Keyword', ['CLASS', 'METHOD', 'FUNCTION', 'CONSTRUCTOR',
 
 @dataclass
 class Token:
-    _type: TokenType
-    value: str
-
-    def __post_init__(self):
-        self.tokens = {
-                TokenType.KEYWORD     : 'keyword',
-                TokenType.SYMBOL      : 'symbol',
-                TokenType.IDENTIFIER  : 'identifier',
-                TokenType.INT_CONST   : 'integer_constant',
-                TokenType.STRING_CONST: 'string_constant',
-                }
-        self.xml_trans = {
-                '<':'&lt;',
-                '>':'&gt;',
-                '&':'&amp;'
-                }
+    _type            : TokenType
+    value            : str
+    tokens           : typing.ClassVar[dict[TokenType, str]] = {
+        TokenType.KEYWORD     : 'keyword',
+        TokenType.SYMBOL      : 'symbol',
+        TokenType.IDENTIFIER  : 'identifier',
+        TokenType.INT_CONST   : 'integer_constant',
+        TokenType.STRING_CONST: 'string_constant',
+    }
+    xml_special_chars: typing.ClassVar[dict[str, str]] = {
+        '<':'&lt;',
+        '>':'&gt;',
+        '&':'&amp;'
+    }
 
     def display(self):
-        val =  self.xml_trans.get(self.value, self.value)
+        val =  self.xml_special_chars.get(self.value, self.value)
         print("<{}> {} </{}>".format(
             self.tokens.get(self._type, "default"), 
             val, 
