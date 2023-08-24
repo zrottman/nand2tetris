@@ -13,7 +13,6 @@ Keyword = Enum('Keyword', ['CLASS', 'METHOD', 'FUNCTION', 'CONSTRUCTOR',
                            'FIELD', 'LET', 'DO', 'IF', 'ELSE', 'WHILE',
                            'RETURN', 'TRUE', 'FALSE', 'NULL', 'THIS'])
 
-State = Enum('State', ['IN_COMMENT_A', 'IN_COMMENT_B', 'IN_STRING_A', 'IN_STRING_B'])
 
 @dataclass
 class Token:
@@ -24,7 +23,7 @@ class Token:
         self.tokens = {
                 TokenType.KEYWORD     : 'keyword',
                 TokenType.SYMBOL      : 'symbol',
-                TokenType.IDENTIFIER : 'identifier',
+                TokenType.IDENTIFIER  : 'identifier',
                 TokenType.INT_CONST   : 'integer_constant',
                 TokenType.STRING_CONST: 'string_constant',
                 }
