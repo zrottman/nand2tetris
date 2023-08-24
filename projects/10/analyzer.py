@@ -2,6 +2,7 @@ import argparse
 import os.path
 from dataclasses import dataclass, field
 from enum import Enum
+import re
 
 TokenType = Enum('TokenType', ['KEYWORD', 'SYMBOL', 'IDENTIFIER',
                                'INT_CONST', 'STRING_CONST'])
@@ -24,7 +25,7 @@ class Token:
                 TokenType.SYMBOL      : 'symbol',
                 TokenType.IDENTIFIER : 'identifier',
                 TokenType.INT_CONST   : 'integer_constant',
-                TokenType.STRING_CONST: 'string_constant'
+                TokenType.STRING_CONST: 'string_constant',
                 }
         self.xml_trans = {
                 '<':'&lt;',
@@ -34,7 +35,7 @@ class Token:
 
     def display(self):
         val =  self.xml_trans.get(self.value, self.value)
-        print("<{}> {} </{}>".format(self.tokens[self._type], val, self.tokens[self._type]))
+        print("<{}> {} </{}>".format(self.tokens.get(self._type, "default"), val, self.tokens.get(self._type, "default")))
 
 @dataclass
 class Tokenizer:
@@ -54,81 +55,62 @@ class Tokenizer:
                     'void', 'true', 'false', 'null', 'this', 'let', 'do',
                     'if', 'else', 'while', 'return']
 
+        self.regex = [
+                # number literals
+                [re.compile(r"\d+"), TokenType.INT_CONST],
+                # string literals
+                [re.compile(r"\"[^\"]*\""), TokenType.STRING_CONST],
+                [re.compile(r"'[^']*.'"), TokenType.STRING_CONST],
+                # comments
+                [re.compile(r"//.*"), None],
+                [re.compile(r"/\*.*\*/", flags=re.DOTALL), None],
+                # whitespace
+                [re.compile(r"[\s\n]+"), None],
+                # keywords
+                [re.compile(r"""
+                    class | constructor | function | method |
+                    field | static | var | int | char | boolean |
+                    void | true | false | null | this | let | do |
+                    if | else | while | return
+                    """, re.X), TokenType.KEYWORD],
+                # symbols
+                [re.compile(r"[\{\}\(\)\[\]\.\,\;\+\-\*\/\&\|\<\>\=\~]"), TokenType.SYMBOL],
+                # identifiers
+                [re.compile(r"[a-zA-Z][a-zA-Z0-9\_]*"), TokenType.IDENTIFIER]
+                ]
+        
         with open(self.jack_file, "r") as f:
             self.jack_code = f.read()
-        print(self.jack_code)
 
     def has_more_tokens(self):
         return self.cursor < len(self.jack_code)
 
     def get_next_token(self):
+
         if not self.has_more_tokens():
             return None
 
-        cur_char  = self.jack_code[self.cursor]
+        cur_str = self.jack_code[self.cursor:]
+        cur_char  = self.jack_code[self.cursor] # to delete
 
-        # integer constant
-        if cur_char.isnumeric():  
-            number = ''
-            while self.has_more_tokens() and self.jack_code[self.cursor].isnumeric():
-                number += self.jack_code[self.cursor]
-                self.cursor += 1
-            return Token(TokenType.INT_CONST, number)
+        for token_pattern in self.regex:
+            regex, token_type = token_pattern
 
-        # in-line comments
-        elif cur_char == '/' and self.jack_code[self.cursor + 1] == '/':
-            while self.jack_code[self.cursor] != '\n':
-                self.cursor += 1
-            self.cursor += 1
+            if (token := regex.match(cur_str)):
+                token = token[0]
+                self.cursor += len(token)
+                return Token(token_type, token)
 
-        # multi-line comments
-        elif cur_char == '/' and self.jack_code[self.cursor + 1] == '*':
-            while not (self.jack_code[self.cursor] == '*' and self.jack_code[self.cursor + 1] == '/'):
-                self.cursor += 1
-            self.cursor += 2
+        print("Unexpected Token at position {} beginning with {}".format(self.cursor, cur_str[:10]))
+        self.cursor += 1
+        return Token(None, '')
 
-        # symbol
-        elif self.jack_code[self.cursor] in self.symbols:
-            self.cursor += 1
-            return Token(TokenType.SYMBOL, cur_char)
-
-        # string constant, double quotes
-        elif self.jack_code[self.cursor] == '"':
-            s = ''
-            self.cursor += 1
-            while self.has_more_tokens() and self.jack_code[self.cursor] != '"':
-                s += self.jack_code[self.cursor]
-                self.cursor += 1
-            self.cursor += 1
-            return Token(TokenType.STRING_CONST, s)
-        
-        # string constant, single quotes
-        elif self.jack_code[self.cursor] == "'":
-            s = ''
-            self.cursor += 1
-            while self.has_more_tokens() and self.jack_code[self.cursor] != "'":
-                s += self.jack_code[self.cursor]
-                self.cursor += 1
-            self.cursor += 1
-            return Token(TokenType.STRING_CONST, s)
-        
-        # identifiers and keywords
-        elif self.jack_code[self.cursor] not in [' ', '\n', '\t']:
-            s = ''
-            while self.has_more_tokens() and self.jack_code[self.cursor] not in [' ', '\n', '\t'] and self.jack_code[self.cursor] not in self.symbols:
-                s += self.jack_code[self.cursor]
-                self.cursor += 1
-            if s in self.keywords:
-                return Token(TokenType.KEYWORD, s)
-            else:
-                return Token(TokenType.IDENTIFIER, s)
-        else:
-            self.cursor += 1
     
     def tokenize(self):
         while self.has_more_tokens():
             if (token := self.get_next_token()):
-                self.tokens.append(token)
+                if token._type:
+                    self.tokens.append(token)
 
     def dump_tokens(self):
         for token in self.tokens:
