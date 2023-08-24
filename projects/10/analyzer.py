@@ -82,26 +82,33 @@ class Tokenizer:
             return None
 
         cur_str = self.jack_code[self.cursor:]
-        cur_char  = self.jack_code[self.cursor] # to delete
 
-        for token_pattern in self.regex:
-            regex, token_type = token_pattern
+        for regexp, token_type in self.lexical_elements:
 
-            if (token := regex.match(cur_str)):
-                token = token[0]
-                self.cursor += len(token)
-                return Token(token_type, token)
+            token = self.match_token(regexp, cur_str)
 
-        print("Unexpected Token at position {} beginning with {}".format(self.cursor, cur_str[:10]))
-        self.cursor += 1
-        return Token(None, '')
+            # no match for this regex pattern
+            if not token:
+                continue
 
-    
+            # skip comments and whitespace
+            if not token_type:
+                return self.get_next_token()
+
+            return Token(token_type, token)
+
+        raise SyntaxError("Unexpected Token at position {} beginning with {}".format(self.cursor, cur_str[:10]))
+
+    def match_token(self,regexp, s):
+        if not (token := regexp.match(s)):
+            return None
+        self.cursor += len(token[0])
+        return token[0]
+
     def tokenize(self):
         while self.has_more_tokens():
             if (token := self.get_next_token()):
-                if token._type:
-                    self.tokens.append(token)
+                self.tokens.append(token)
 
     def dump_tokens(self):
         for token in self.tokens:
