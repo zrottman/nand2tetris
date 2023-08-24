@@ -18,17 +18,17 @@ Keyword = Enum('Keyword', ['CLASS', 'METHOD', 'FUNCTION', 'CONSTRUCTOR',
 class Token:
     _type            : TokenType
     value            : str
+    xml_special_chars: typing.ClassVar[dict[str, str]] = {
+        '<':'&lt;',
+        '>':'&gt;',
+        '&':'&amp;'
+    }
     tokens           : typing.ClassVar[dict[TokenType, str]] = {
         TokenType.KEYWORD     : 'keyword',
         TokenType.SYMBOL      : 'symbol',
         TokenType.IDENTIFIER  : 'identifier',
         TokenType.INT_CONST   : 'integer_constant',
         TokenType.STRING_CONST: 'string_constant',
-    }
-    xml_special_chars: typing.ClassVar[dict[str, str]] = {
-        '<':'&lt;',
-        '>':'&gt;',
-        '&':'&amp;'
     }
 
     def display(self):
