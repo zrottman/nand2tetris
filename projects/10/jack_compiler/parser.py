@@ -1,144 +1,10 @@
-import argparse
-import os.path
 from dataclasses import dataclass, field
-from enum import Enum
+from .tokenizer import Tokenizer, Token
+import os.path
 import typing
-import re
+from .enums import TokenType
 
-
-TokenType = Enum('TokenType', ['KEYWORD', 'SYMBOL', 'IDENTIFIER',
-                               'INT_CONST', 'STRING_CONST'])
-
-'''
-TODO: Move each class to its own file
-'''
-
-@dataclass
-class Token:
-    _type            : TokenType
-    value            : str
-    xml_special_chars: typing.ClassVar[dict[str, str]] = {
-        '<':'&lt;',
-        '>':'&gt;',
-        '&':'&amp;'
-    }
-    tokens           : typing.ClassVar[dict[TokenType, str]] = {
-        TokenType.KEYWORD     : 'keyword',
-        TokenType.SYMBOL      : 'symbol',
-        TokenType.IDENTIFIER  : 'identifier',
-        TokenType.INT_CONST   : 'integerConstant',
-        TokenType.STRING_CONST: 'stringConstant',
-    }
-
-    def display(self):
-        val =  self.xml_special_chars.get(self.value, self.value)
-        print("<{}> {} </{}>".format(
-            self.tokens.get(self._type, "unknown token"), 
-            val, 
-            self.tokens.get(self._type, "unknown token")))
-
-    def terminal(self):
-        val =  self.xml_special_chars.get(self.value, self.value)
-        return "<{}> {} </{}>".format(
-            self.tokens.get(self._type, "unknown token"), 
-            val,
-            self.tokens.get(self._type, "unknown token"))
-
-
-@dataclass
-class Tokenizer:
-    
-    jack_file       : str
-    tokens          : list[Token] = field(default_factory=list, init=False) #TODO: delete
-    cursor          : int = field(default=0, init=False)
-    lexical_elements: typing.ClassVar[list[list[typing.Pattern, TokenType]]] = [
-
-            # numbers
-            [re.compile(r"^\d+"), TokenType.INT_CONST],
-
-            # strings
-            [re.compile(r"^\"[^\"]*\""), TokenType.STRING_CONST],
-            [re.compile(r"^'[^']*.'"), TokenType.STRING_CONST],
-
-            # comments
-            [re.compile(r"^//.*"), None],
-            [re.compile(r"^\/\*.*?\*\/", flags=re.DOTALL), None],
-
-            # whitespace
-            [re.compile(r"^[\s\n]+"), None],
-
-            # keywords
-            [re.compile(r"""^
-                class | constructor | function | method |
-                field | static | var | int | char | boolean |
-                void | true | false | null | this | let | do |
-                if | else | while | return
-                """, re.X), TokenType.KEYWORD],
-
-            # symbols
-            [re.compile(r"^[\{\}\(\)\[\]\.\,\;\+\-\*\/\&\|\<\>\=\~]"), TokenType.SYMBOL],
-
-            # identifiers
-            [re.compile(r"^[a-zA-Z][a-zA-Z0-9\_]*"), TokenType.IDENTIFIER]]
-
-    def __post_init__(self):
-        with open(self.jack_file, "r") as f:
-            self.jack_code = f.read()
-
-    def has_more_tokens(self):
-        return self.cursor < len(self.jack_code)
-
-    def get_next_token(self, advance_cursor=True):
-        '''
-        TODO: Fix this hacky approach to peeking
-        '''
-
-        if not self.has_more_tokens():
-            return None
-
-        cur_str = self.jack_code[self.cursor:]
-
-        for regexp, token_type in self.lexical_elements:
-
-            token = self.match_token(regexp, cur_str, advance_cursor)
-
-            # no match for this regex pattern
-            if not token:
-                continue
-
-            # skip comments and whitespace
-            if not token_type:
-                return self.get_next_token(advance_cursor)
-
-            # remove outer quotes when matching strings
-            if token_type == TokenType.STRING_CONST:
-                token = token[1:-1]
-
-            if not advance_cursor: self.cursor -= len(token) #TODO <- hackiness
-
-            return Token(token_type, token)
-
-        raise SyntaxError("Unexpected Token at position {} beginning with {}".format(self.cursor, cur_str[:10]))
-
-    def match_token(self, regexp, s, advance_cursor):
-        if not (token := regexp.match(s)):
-            return None
-        self.cursor += len(token[0])
-        return token[0]
-
-    def tokenize(self):
-        # TODO: delete
-        while self.has_more_tokens():
-            if (token := self.get_next_token()):
-                self.tokens.append(token)
-        return self.tokens
-
-    def dump_tokens(self):
-        # TODO: delete
-        print("TOKEN DUMP")
-        for token in self.tokens:
-            token.display()
-
+# TODO: Add indentation support
 @dataclass
 class Parser:
 
@@ -190,7 +56,7 @@ class Parser:
 
         self.advance_token()
 
-        self.write_line(token.terminal()) # TODO better printing function here which takes indentaion into account
+        self.write_line(token.display_token())
 
     def write_line(self, line):
         self.write_file.write(line)
@@ -419,32 +285,15 @@ class Parser:
         self.eat(token_type=TokenType.IDENTIFIER) # eat subroutine_name or class_name or var_name
         if self.lookahead.value == '(':
             pass
-            '''
-            self.eat(token_value='(')
-            if self.lookahead.value != ')':
-                self.compile_expression_list()
-            self.eat(token_value=')')
-            '''
         elif self.lookahead.value == '.':
             self.eat(token_value='.')
             self.eat(token_type=TokenType.IDENTIFIER)
-
-            # TODO: following three lines are redundant with above, consider moving out of if/else
-            '''
-            self.eat(token_value='(')
-            if self.lookahead.value != ')':
-                self.compile_expression_list()
-            self.eat(token_value=')')
-            '''
         else:
             raise SyntaxError("Expected `(` or `.`, got {}".format(self.lookahead.value))
 
         self.eat(token_value='(')
-        self.compile_expression_list() ## TODO: I'm here. I need to call compile_expression_list
-                                       #  no matter what. and from within that function determine
-                                       #  whether or not to move ahead and do stuff.
+        self.compile_expression_list() 
         self.eat(token_value=')')
-
 
     def compile_expression_list(self):
         self.write_line("<expressionList>")
@@ -457,54 +306,3 @@ class Parser:
 
     def close(self):
         self.write_file.close()
-
-
-def get_path():
-
-    parser = argparse.ArgumentParser(
-            prog='JackAnalyzer',
-            description='Analyzes .jack files')
-    parser.add_argument('path',
-                        help='path to .jack file or dir containing .jack files')
-    args = parser.parse_args()
-    path = args.path
-
-    return path
-
-
-def get_jack_files(path):
-    
-    jack_files = []
-
-    if os.path.isdir(path):                 # get all jack files in directory
-        for file in os.listdir(path):
-            ext = os.path.splitext(file)[1]
-            if ext == '.jack':
-                jack_files.append(''.join([path, '/', file]))
-    elif os.path.splitext(path)[1] == '.jack': # ensure that this is a jack file
-        jack_files.append(path)
-    else:
-        pass
-
-    return jack_files
-
-
-def main():
-
-    # get path from command line arg
-    path = get_path()
-
-    # get list of .jack files to analyze
-    jack_files = get_jack_files(path)
-
-    # loop through jack files and process 
-    for jack_file in jack_files:
-
-        parser = Parser(jack_file)
-
-        parser.parse()
-
-
-if __name__ == '__main__':
-
-    main()
