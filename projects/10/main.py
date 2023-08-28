@@ -2,12 +2,6 @@ import argparse
 import os.path
 from jack_compiler import Parser
 
-
-'''
-TODO: Move each class to its own file
-'''
-
-
 def get_path():
 
     parser = argparse.ArgumentParser(
