@@ -26,8 +26,8 @@ class Token:
         TokenType.KEYWORD     : 'keyword',
         TokenType.SYMBOL      : 'symbol',
         TokenType.IDENTIFIER  : 'identifier',
-        TokenType.INT_CONST   : 'integer_constant',
-        TokenType.STRING_CONST: 'string_constant',
+        TokenType.INT_CONST   : 'integerConstant',
+        TokenType.STRING_CONST: 'stringConstant',
     }
 
     def display(self):
@@ -110,14 +110,17 @@ class Tokenizer:
             if not token_type:
                 return self.get_next_token(advance_cursor)
 
-            if not advance_cursor: self.cursor -= len(token) #TODO <- hackiness
+            # remove outer quotes when matching strings
+            if token_type == TokenType.STRING_CONST:
+                token = token[1:-1]
 
+            if not advance_cursor: self.cursor -= len(token) #TODO <- hackiness
 
             return Token(token_type, token)
 
         raise SyntaxError("Unexpected Token at position {} beginning with {}".format(self.cursor, cur_str[:10]))
 
-    def match_token(self,regexp, s, advance_cursor):
+    def match_token(self, regexp, s, advance_cursor):
         if not (token := regexp.match(s)):
             return None
         self.cursor += len(token[0])
@@ -143,16 +146,18 @@ class Parser:
     tokenizer      : Tokenizer = field(init=False)
     output_filename: str = field(init=False)
     lookahead      : Token = field(init=False)
+    write_file     : typing.IO = field(init=False)
 
     def __post_init__(self):
         self.tokenizer = Tokenizer(self.input_filename)
         self.output_filename = self.create_output_filename(self.input_filename)
         self.lookahead = self.tokenizer.get_next_token()
+        self.write_file = open(self.output_filename, "w")
         #self.tokenizer.tokenize()
         #self.tokenizer.dump_tokens()
 
     def create_output_filename(self, jack_file):
-        return ''.join([os.path.splitext(jack_file)[0], '.xml'])
+        return ''.join([os.path.splitext(jack_file)[0], '.z', '.xml'])
 
     def advance_token(self):
         self.lookahead = self.tokenizer.get_next_token()
@@ -215,7 +220,7 @@ class Parser:
         print("</classVarDec>")
 
     def compile_subroutine(self):
-        print("<subroutine>")
+        print("<subroutineDec>")
         self.eat(token_type=TokenType.KEYWORD) # already ensured token.value is constructor, function, or method
         if self.lookahead.value == 'void':
             self.eat(token_value='void')
@@ -223,20 +228,24 @@ class Parser:
             self.compile_type()
         self.eat(token_type=TokenType.IDENTIFIER)
         self.eat(token_value='(')
+        '''
         if self.lookahead.value != ')':
             self.compile_parameter_list()
+        '''
+        self.compile_parameter_list()
         self.eat(token_value=')')
         self.compile_subroutine_body()
-        print("</subroutine>")
+        print("</subroutineDec>")
 
     def compile_parameter_list(self):
         print("<parameterList>")
-        self.compile_type()
-        self.eat(token_type=TokenType.IDENTIFIER)
-        while self.lookahead.value == ',':
-            self.eat(token_value=',')
+        if self.lookahead.value != ')':
             self.compile_type()
             self.eat(token_type=TokenType.IDENTIFIER)
+            while self.lookahead.value == ',':
+                self.eat(token_value=',')
+                self.compile_type()
+                self.eat(token_type=TokenType.IDENTIFIER)
         print("</parameterList>")
 
     def compile_subroutine_body(self):
@@ -275,8 +284,10 @@ class Parser:
         print("</varDec>")
         
     def compile_statements(self):
+        print("<statements>")
         while self.lookahead.value in ['let', 'if', 'while', 'do', 'return']:
             self.compile_statement()
+        print("</statements>")
 
     def compile_statement(self):
         match self.lookahead.value:
@@ -400,32 +411,48 @@ class Parser:
         print("</term>")
 
     def compile_subroutine_call(self):
-        print("<subroutine_call>")
         self.eat(token_type=TokenType.IDENTIFIER) # eat subroutine_name or class_name or var_name
         if self.lookahead.value == '(':
+            pass
+            '''
             self.eat(token_value='(')
             if self.lookahead.value != ')':
                 self.compile_expression_list()
             self.eat(token_value=')')
+            '''
         elif self.lookahead.value == '.':
             self.eat(token_value='.')
             self.eat(token_type=TokenType.IDENTIFIER)
+
             # TODO: following three lines are redundant with above, consider moving out of if/else
+            '''
             self.eat(token_value='(')
             if self.lookahead.value != ')':
                 self.compile_expression_list()
             self.eat(token_value=')')
+            '''
         else:
             raise SyntaxError("Expected `(` or `.`, got {}".format(self.lookahead.value))
-        print("</subroutine_call>")
+
+        self.eat(token_value='(')
+        self.compile_expression_list() ## TODO: I'm here. I need to call compile_expression_list
+                                       #  no matter what. and from within that function determine
+                                       #  whether or not to move ahead and do stuff.
+        self.eat(token_value=')')
+
 
     def compile_expression_list(self):
-        print("<expression_list>")
-        self.compile_expression()
-        while self.lookahead.value == ',':
-            self.eat(token_value=',')
+        print("<expressionList>")
+        if self.lookahead.value != ')':
             self.compile_expression()
-        print("</expression_list>")
+            while self.lookahead.value == ',':
+                self.eat(token_value=',')
+                self.compile_expression()
+        print("</expressionList>")
+
+    def close(self):
+        self.write_file.write(self.input_filename)
+        self.write_file.close()
 
 
 def get_path():
@@ -472,6 +499,8 @@ def main():
         parser = Parser(jack_file)
 
         parser.parse()
+
+        parser.close()
 
         # dump to screen
         # parser.dump()
