@@ -190,14 +190,19 @@ class Parser:
 
         self.advance_token()
 
-        print(token.terminal()) # TODO better printing function here which takes indentaion into account
+        self.write_line(token.terminal()) # TODO better printing function here which takes indentaion into account
+
+    def write_line(self, line):
+        self.write_file.write(line)
+        self.write_file.write('\n')
 
     def parse(self):
         self.compile_class()
+        self.close() # close write file
 
     def compile_class(self):
 
-        print("<class>")
+        self.write_line("<class>")
         self.eat(token_value='class')
         self.eat(token_type=TokenType.IDENTIFIER)
         self.eat(token_value='{')
@@ -206,10 +211,10 @@ class Parser:
         while self.lookahead.value in ['constructor', 'function', 'method']:
             self.compile_subroutine()
         self.eat(token_value='}')
-        print("</class>")
+        self.write_line("</class>")
 
     def compile_class_var(self):
-        print("<classVarDec>")
+        self.write_line("<classVarDec>")
         self.eat(token_type=TokenType.KEYWORD) #already ensured that token.value is static or field
         self.compile_type()
         self.eat(token_type=TokenType.IDENTIFIER)
@@ -217,10 +222,10 @@ class Parser:
             self.eat(token_value=',')
             self.eat(token_type=TokenType.IDENTIFIER)
         self.eat(token_value=';')
-        print("</classVarDec>")
+        self.write_line("</classVarDec>")
 
     def compile_subroutine(self):
-        print("<subroutineDec>")
+        self.write_line("<subroutineDec>")
         self.eat(token_type=TokenType.KEYWORD) # already ensured token.value is constructor, function, or method
         if self.lookahead.value == 'void':
             self.eat(token_value='void')
@@ -235,10 +240,10 @@ class Parser:
         self.compile_parameter_list()
         self.eat(token_value=')')
         self.compile_subroutine_body()
-        print("</subroutineDec>")
+        self.write_line("</subroutineDec>")
 
     def compile_parameter_list(self):
-        print("<parameterList>")
+        self.write_line("<parameterList>")
         if self.lookahead.value != ')':
             self.compile_type()
             self.eat(token_type=TokenType.IDENTIFIER)
@@ -246,16 +251,16 @@ class Parser:
                 self.eat(token_value=',')
                 self.compile_type()
                 self.eat(token_type=TokenType.IDENTIFIER)
-        print("</parameterList>")
+        self.write_line("</parameterList>")
 
     def compile_subroutine_body(self):
-        print("<subroutineBody>")
+        self.write_line("<subroutineBody>")
         self.eat(token_value='{')
         while self.lookahead.value == 'var':
             self.compile_var()
         self.compile_statements()
         self.eat(token_value='}')
-        print("</subroutineBody>")
+        self.write_line("</subroutineBody>")
 
     def compile_type(self):
         if self.lookahead._type == TokenType.IDENTIFIER:
@@ -273,7 +278,7 @@ class Parser:
         
     def compile_var(self):
 
-        print("<varDec>")
+        self.write_line("<varDec>")
         self.eat(token_value='var')
         self.compile_type()
         self.eat(token_type=TokenType.IDENTIFIER)
@@ -281,13 +286,13 @@ class Parser:
             self.eat(token_value=',')
             self.eat(token_type=TokenType.IDENTIFIER)
         self.eat(token_value=';')
-        print("</varDec>")
+        self.write_line("</varDec>")
         
     def compile_statements(self):
-        print("<statements>")
+        self.write_line("<statements>")
         while self.lookahead.value in ['let', 'if', 'while', 'do', 'return']:
             self.compile_statement()
-        print("</statements>")
+        self.write_line("</statements>")
 
     def compile_statement(self):
         match self.lookahead.value:
@@ -303,7 +308,7 @@ class Parser:
                 self.compile_return()
 
     def compile_let(self):
-        print("<letStatement>")
+        self.write_line("<letStatement>")
         self.eat(token_value='let')
         self.eat(token_type=TokenType.IDENTIFIER) # var_name
         if self.lookahead.value == '[':
@@ -313,10 +318,10 @@ class Parser:
         self.eat(token_value='=')
         self.compile_expression()
         self.eat(token_value=';')
-        print("</letStatement>")
+        self.write_line("</letStatement>")
 
     def compile_if(self):
-        print("<ifStatement>")
+        self.write_line("<ifStatement>")
         self.eat(token_value='if')
         self.eat(token_value='(')
         self.compile_expression()
@@ -329,10 +334,10 @@ class Parser:
             self.eat(token_value='{')
             self.compile_statements()
             self.eat(token_value='}')
-        print("</ifStatement>")
+        self.write_line("</ifStatement>")
 
     def compile_while(self):
-        print("<whileStatement>")
+        self.write_line("<whileStatement>")
         self.eat(token_value='while')
         self.eat(token_value='(')
         self.compile_expression()
@@ -340,33 +345,33 @@ class Parser:
         self.eat(token_value='{')
         self.compile_statements()
         self.eat(token_value='}')
-        print("</whileStatement>")
+        self.write_line("</whileStatement>")
 
     def compile_do(self):
-        print("<doStatement>")
+        self.write_line("<doStatement>")
         self.eat(token_value='do')
         self.compile_subroutine_call()
         self.eat(token_value=';')
-        print("</doStatement>")
+        self.write_line("</doStatement>")
 
     def compile_return(self):
-        print("<returnStatement>")
+        self.write_line("<returnStatement>")
         self.eat(token_value='return')
         if self.lookahead.value != ';':
             self.compile_expression()
         self.eat(token_value=';')
-        print("</returnStatement>")
+        self.write_line("</returnStatement>")
 
     def compile_expression(self):
-        print("<expression>")
+        self.write_line("<expression>")
         self.compile_term()
         while self.lookahead.value in ['+', '-', '*', '/', '&', '|', '<', '>', '=']:
             self.eat(token_value=self.lookahead.value) # TODO this is hacky, fix
             self.compile_term()
-        print("</expression>")
+        self.write_line("</expression>")
 
     def compile_term(self):
-        print("<term>")
+        self.write_line("<term>")
 
         # integer constant
         if self.lookahead._type == TokenType.INT_CONST:
@@ -408,7 +413,7 @@ class Parser:
                 self.eat(token_type=TokenType.IDENTIFIER)
         else:
             raise SyntaxError("Unexpected input")
-        print("</term>")
+        self.write_line("</term>")
 
     def compile_subroutine_call(self):
         self.eat(token_type=TokenType.IDENTIFIER) # eat subroutine_name or class_name or var_name
@@ -442,16 +447,15 @@ class Parser:
 
 
     def compile_expression_list(self):
-        print("<expressionList>")
+        self.write_line("<expressionList>")
         if self.lookahead.value != ')':
             self.compile_expression()
             while self.lookahead.value == ',':
                 self.eat(token_value=',')
                 self.compile_expression()
-        print("</expressionList>")
+        self.write_line("</expressionList>")
 
     def close(self):
-        self.write_file.write(self.input_filename)
         self.write_file.close()
 
 
@@ -500,13 +504,6 @@ def main():
 
         parser.parse()
 
-        parser.close()
-
-        # dump to screen
-        # parser.dump()
-
-        # write to file
-        # parser.write()
 
 if __name__ == '__main__':
 
