@@ -3,6 +3,10 @@ import os.path
 from jack_compiler import Parser
 
 def get_path():
+    '''
+    Handle command line input for path to .jack file or directory containing
+    .jack files.
+    '''
 
     parser = argparse.ArgumentParser(
             prog='JackAnalyzer',
@@ -16,6 +20,10 @@ def get_path():
 
 
 def get_jack_files(path):
+    '''
+    Given a path to a .jack file or directory containing multiple .jack files,
+    returns a list of all .jack files to compile.
+    '''
     
     jack_files = []
 
