@@ -2,9 +2,9 @@ from dataclasses import dataclass, field
 from .tokenizer import Tokenizer, Token
 import os.path
 import typing
-from .enums import TokenType
+from .enums import TokenType, Keyword
 
-# TODO: Add indentation support
+# TODO: Add indentation support, delete Keyword enum stuff
 @dataclass
 class CompilationEngine:
 
@@ -13,6 +13,31 @@ class CompilationEngine:
     output_filename: str = field(init=False)
     lookahead      : Token = field(init=False)
     write_file     : typing.IO = field(init=False)
+    
+    keywords       : typing.ClassVar[dict[Keyword, str]] = {
+        Keyword.CLASS       : 'class',
+        Keyword.METHOD      : 'method',
+        Keyword.FUNCTION    : 'function',
+        Keyword.CONSTRUCTOR : 'constructor',
+        Keyword.INT         : 'int',
+        Keyword.BOOLEAN     : 'boolean',
+        Keyword.CHAR        : 'char',
+        Keyword.VOID        : 'void',
+        Keyword.VAR         : 'var',
+        Keyword.STATIC      : 'static',
+        Keyword.FIELD       : 'field',
+        Keyword.LET         : 'let',
+        Keyword.DO          : 'do',
+        Keyword.IF          : 'if',
+        Keyword.ELSE        : 'else',
+        Keyword.WHILE       : 'while',
+        Keyword.RETURN      : 'return',
+        Keyword.TRUE        : 'true',
+        Keyword.FALSE       : 'false',
+        Keyword.NULL        : 'null',
+        Keyword.THIS        : 'this'
+    }
+
 
     def __post_init__(self):
         self.tokenizer = Tokenizer(self.input_filename)
