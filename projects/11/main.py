@@ -1,6 +1,6 @@
 import argparse
 import os.path
-from jack_compiler import Parser
+from jack_compiler import CompilationEngine
 
 def get_path():
     '''
@@ -51,9 +51,9 @@ def main():
     # loop through jack files and process 
     for jack_file in jack_files:
 
-        parser = Parser(jack_file)
+        compilation_engine = CompilationEngine(jack_file)
 
-        parser.parse()
+        compilation_engine.parse()
 
 
 if __name__ == '__main__':

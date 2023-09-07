@@ -1,2 +1,2 @@
 from .tokenizer import Tokenizer
-from .parser import Parser
+from .compilation_engine import CompilationEngine

@@ -6,7 +6,7 @@ from .enums import TokenType
 
 # TODO: Add indentation support
 @dataclass
-class Parser:
+class CompilationEngine:
 
     input_filename : str
     tokenizer      : Tokenizer = field(init=False)
