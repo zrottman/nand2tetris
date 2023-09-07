@@ -57,7 +57,7 @@ class CompilationEngine:
         '''
         return self.tokenizer.get_next_token(advance_cursor=False)
 
-    def eat(self, token_type=None, token_value=None):
+    def eat(self, token_type=None, token_value=None, identifier_cat=None):
         '''
         TODO: consider having this return 1 if successful or 0 if not. Then I could do something like:
         if not (self.eat(token_value='static') or self.eat(token_value='field'):
@@ -86,7 +86,12 @@ class CompilationEngine:
 
         self.advance_token()
 
-        self.write_line(token.display_token())
+        # testing to add identifer category for identifiers
+        line = [token.display_token()]
+        if identifier_cat: line.append(identifier_cat)
+        self.write_line(' '.join(line))
+
+        #self.write_line(token.display_token()) # TODO: remove write_line()
 
     def write_line(self, line):
         self.write_file.write(line)
@@ -100,7 +105,7 @@ class CompilationEngine:
 
         self.write_line("<class>")
         self.eat(token_value='class')
-        self.eat(token_type=TokenType.IDENTIFIER)
+        self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='class')
         self.eat(token_value='{')
         while self.lookahead.value in ['static', 'field']:
             self.compile_class_var()
@@ -111,9 +116,10 @@ class CompilationEngine:
 
     def compile_class_var(self):
         self.write_line("<classVarDec>")
+        cat = self.lookahead.value
         self.eat(token_type=TokenType.KEYWORD) #already ensured that token.value is static or field
         self.compile_type()
-        self.eat(token_type=TokenType.IDENTIFIER)
+        self.eat(token_type=TokenType.IDENTIFIER, identifier_cat=cat)
         while self.lookahead.value == ',':
             self.eat(token_value=',')
             self.eat(token_type=TokenType.IDENTIFIER)
@@ -127,7 +133,7 @@ class CompilationEngine:
             self.eat(token_value='void')
         else:
             self.compile_type()
-        self.eat(token_type=TokenType.IDENTIFIER)
+        self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='subroutine')
         self.eat(token_value='(')
         '''
         if self.lookahead.value != ')':
@@ -142,11 +148,11 @@ class CompilationEngine:
         self.write_line("<parameterList>")
         if self.lookahead.value != ')':
             self.compile_type()
-            self.eat(token_type=TokenType.IDENTIFIER)
+            self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='argument')
             while self.lookahead.value == ',':
                 self.eat(token_value=',')
                 self.compile_type()
-                self.eat(token_type=TokenType.IDENTIFIER)
+                self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='argument')
         self.write_line("</parameterList>")
 
     def compile_subroutine_body(self):
@@ -177,10 +183,10 @@ class CompilationEngine:
         self.write_line("<varDec>")
         self.eat(token_value='var')
         self.compile_type()
-        self.eat(token_type=TokenType.IDENTIFIER) # <identifer> var is_defined foo </identifier>
+        self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='var') # <identifer> var is_defined foo </identifier>
         while self.lookahead.value == ',':
             self.eat(token_value=',')
-            self.eat(token_type=TokenType.IDENTIFIER)
+            self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='var')
         self.eat(token_value=';')
         self.write_line("</varDec>")
         
