@@ -8,3 +8,6 @@ Keyword = Enum('Keyword', ['CLASS', 'METHOD', 'FUNCTION', 'CONSTRUCTOR',
                            'STATIC', 'FIELD', 'LET', 'DO', 'IF', 
                            'ELSE', 'WHILE', 'RETURN', 'TRUE', 
                            'FALSE', 'NULL', 'THIS'])
+
+SymbolKind = Enum('SymbolKind', ['STATIC', 'FIELD', 'ARG', 'VAR'])
+SymbolScope = Enum('SymbolScope', ['CLASS', 'SUBROUTINE'])
