@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 import typing
 import os
+from .enums import Segment, Command
 
 @dataclass
 class VMWriter:

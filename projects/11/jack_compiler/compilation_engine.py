@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from .tokenizer import Tokenizer, Token
 import os.path
 import typing
-from .enums import TokenType, SymbolScope, SymbolKind
+from .enums import TokenType, SymbolScope, SymbolKind, Segment, Command
 from .symboltable import SymbolTable
 from .vmwriter import VMWriter
 
