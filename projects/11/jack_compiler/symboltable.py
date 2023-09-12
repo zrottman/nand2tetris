@@ -80,11 +80,9 @@ class SymbolTable:
 
 
         # Logging
-        '''
         print("Adding to symbols table")
         pprint.PrettyPrinter(depth=4).pprint(self.symbols)
         print()
-        '''
 
     def start_subroutine(self):
         self.idx_lookup[SymbolKind.ARG] = 0
