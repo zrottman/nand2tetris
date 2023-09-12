@@ -15,27 +15,27 @@ class VMWriter:
         self.writefile = open(self.output_filename, 'w')
 
     def create_output_filename(self, jack_file):
-        return ''.join([os.path.splitext(jack_file)[0], '.z', '.xml'])
+        return ''.join([os.path.splitext(jack_file)[0], '.z', '.vm'])
 
-    def write_push(self):
+    def write_push(self, segment: Segment, idx: int):
         pass
 
-    def write_pop(self):
+    def write_pop(self, segment: Segment, idx: int):
         pass
 
-    def write_arithmetic(self):
+    def write_arithmetic(self, command: Command):
         pass
 
-    def write_label(self):
+    def write_label(self, label: str):
         pass
 
-    def write_goto(self):
+    def write_goto(self, label: str):
         pass
 
-    def write_if(self):
+    def write_if(self, label: str):
         pass
 
-    def write_call(self):
+    def write_call(self, name: str, n_args: int):
         pass
 
     def write_function(self):
