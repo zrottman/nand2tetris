@@ -4,6 +4,7 @@ import os.path
 import typing
 from .enums import TokenType, SymbolScope, SymbolKind
 from .symboltable import SymbolTable
+from .vmwriter import VMWriter
 
 # TODO: Add indentation support
 @dataclass
@@ -11,20 +12,24 @@ class CompilationEngine:
 
     input_filename : str
     tokenizer      : Tokenizer = field(init=False)
-    output_filename: str = field(init=False)
+    #output_filename: str = field(init=False)
     lookahead      : Token = field(init=False)
-    write_file     : typing.IO = field(init=False)
+    #write_file     : typing.IO = field(init=False)
     symbols        : SymbolTable = field(init=False)
+    vmwriter       : VMWriter = field(init=False)
     
     def __post_init__(self):
         self.tokenizer = Tokenizer(self.input_filename)
-        self.output_filename = self.create_output_filename(self.input_filename)
+        #self.output_filename = self.create_output_filename(self.input_filename)
         self.advance_token()
-        self.write_file = open(self.output_filename, "w")
+        #self.write_file = open(self.output_filename, "w")
         self.symbols = SymbolTable()
+        self.vmwriter = VMWriter(self.input_filename)
 
+    '''
     def create_output_filename(self, jack_file):
         return ''.join([os.path.splitext(jack_file)[0], '.z', '.xml'])
+    '''
 
     def advance_token(self):
         self.lookahead = self.tokenizer.get_next_token()
@@ -74,20 +79,24 @@ class CompilationEngine:
         self.write_line(' '.join(line))
         '''
 
-        self.write_line(token.display_token()) # TODO: remove write_line()
+        # vmwriter write line
+        #self.write_line(token.display_token()) # TODO: remove write_line()
 
         return token.value # return the value of the token just consumed
 
+    '''
     def write_line(self, line):
         self.write_file.write(line)
         self.write_file.write('\n')
+    '''
 
     def parse(self):
         self.compile_class()
-        self.close() # close write file
+        #self.close() # close write file
+        self.vmwriter.close()
 
     def compile_class(self):
-        self.write_line("<class>")
+        #self.write_line("<class>")
         self.eat(token_value='class')
         self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='class')
         self.eat(token_value='{')
@@ -96,7 +105,7 @@ class CompilationEngine:
         while self.lookahead.value in ['constructor', 'function', 'method']:
             self.compile_subroutine()
         self.eat(token_value='}')
-        self.write_line("</class>")
+        #self.write_line("</class>")
 
     def compile_class_var(self):
         '''
@@ -116,7 +125,7 @@ class CompilationEngine:
 
         '''
 
-        self.write_line("<classVarDec>")
+        #self.write_line("<classVarDec>")
 
         cur_symbol = {}
 
@@ -134,10 +143,10 @@ class CompilationEngine:
             self.add_symbol(cur_symbol)
 
         self.eat(token_value=';')
-        self.write_line("</classVarDec>")
+        #self.write_line("</classVarDec>")
 
     def compile_subroutine(self):
-        self.write_line("<subroutineDec>")
+        #self.write_line("<subroutineDec>")
         self.symbols.start_subroutine()
         self.eat(token_type=TokenType.KEYWORD) # already ensured token.value is constructor, function, or method
         if self.lookahead.value == 'void':
@@ -149,10 +158,10 @@ class CompilationEngine:
         self.compile_parameter_list()
         self.eat(token_value=')')
         self.compile_subroutine_body()
-        self.write_line("</subroutineDec>")
+        #self.write_line("</subroutineDec>")
 
     def compile_parameter_list(self):
-        self.write_line("<parameterList>")
+        #self.write_line("<parameterList>")
 
         cur_symbol = {}
 
@@ -167,16 +176,16 @@ class CompilationEngine:
                 cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
                 self.add_symbol(cur_symbol)
 
-        self.write_line("</parameterList>")
+        #self.write_line("</parameterList>")
 
     def compile_subroutine_body(self):
-        self.write_line("<subroutineBody>")
+        #self.write_line("<subroutineBody>")
         self.eat(token_value='{')
         while self.lookahead.value == 'var':
             self.compile_var()
         self.compile_statements()
         self.eat(token_value='}')
-        self.write_line("</subroutineBody>")
+        #self.write_line("</subroutineBody>")
 
     def compile_type(self):
         if self.lookahead._type == TokenType.IDENTIFIER:
@@ -193,7 +202,7 @@ class CompilationEngine:
                     raise SyntaxError("Unexpected var type")
         
     def compile_var(self):
-        self.write_line("<varDec>")
+        #self.write_line("<varDec>")
 
         cur_symbol = {}
         cur_symbol['kind'] = self.eat(token_value='var')
@@ -205,13 +214,13 @@ class CompilationEngine:
             cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
             self.add_symbol(cur_symbol)
         self.eat(token_value=';')
-        self.write_line("</varDec>")
+        #self.write_line("</varDec>")
         
     def compile_statements(self):
-        self.write_line("<statements>")
+        #self.write_line("<statements>")
         while self.lookahead.value in ['let', 'if', 'while', 'do', 'return']:
             self.compile_statement()
-        self.write_line("</statements>")
+        #self.write_line("</statements>")
 
     def compile_statement(self):
         match self.lookahead.value:
@@ -227,7 +236,7 @@ class CompilationEngine:
                 self.compile_return()
 
     def compile_let(self):
-        self.write_line("<letStatement>")
+        #self.write_line("<letStatement>")
         self.eat(token_value='let')
         self.eat(token_type=TokenType.IDENTIFIER)
         if self.lookahead.value == '[':
@@ -237,10 +246,10 @@ class CompilationEngine:
         self.eat(token_value='=')
         self.compile_expression()
         self.eat(token_value=';')
-        self.write_line("</letStatement>")
+        #self.write_line("</letStatement>")
 
     def compile_if(self):
-        self.write_line("<ifStatement>")
+        #self.write_line("<ifStatement>")
         self.eat(token_value='if')
         self.eat(token_value='(')
         self.compile_expression()
@@ -253,10 +262,10 @@ class CompilationEngine:
             self.eat(token_value='{')
             self.compile_statements()
             self.eat(token_value='}')
-        self.write_line("</ifStatement>")
+        #self.write_line("</ifStatement>")
 
     def compile_while(self):
-        self.write_line("<whileStatement>")
+        #self.write_line("<whileStatement>")
         self.eat(token_value='while')
         self.eat(token_value='(')
         self.compile_expression()
@@ -264,33 +273,33 @@ class CompilationEngine:
         self.eat(token_value='{')
         self.compile_statements()
         self.eat(token_value='}')
-        self.write_line("</whileStatement>")
+        #self.write_line("</whileStatement>")
 
     def compile_do(self):
-        self.write_line("<doStatement>")
+        #self.write_line("<doStatement>")
         self.eat(token_value='do')
         self.compile_subroutine_call()
         self.eat(token_value=';')
-        self.write_line("</doStatement>")
+        #self.write_line("</doStatement>")
 
     def compile_return(self):
-        self.write_line("<returnStatement>")
+        #self.write_line("<returnStatement>")
         self.eat(token_value='return')
         if self.lookahead.value != ';':
             self.compile_expression()
         self.eat(token_value=';')
-        self.write_line("</returnStatement>")
+        #self.write_line("</returnStatement>")
 
     def compile_expression(self):
-        self.write_line("<expression>")
+        #self.write_line("<expression>")
         self.compile_term()
         while self.lookahead.value in ['+', '-', '*', '/', '&', '|', '<', '>', '=']:
             self.eat(token_value=self.lookahead.value) # TODO this is hacky, fix
             self.compile_term()
-        self.write_line("</expression>")
+        #self.write_line("</expression>")
 
     def compile_term(self):
-        self.write_line("<term>")
+        #self.write_line("<term>")
 
         # integer constant
         if self.lookahead._type == TokenType.INT_CONST:
@@ -333,7 +342,7 @@ class CompilationEngine:
                 self.eat(token_type=TokenType.IDENTIFIER) # syboltable: either var, static, or field
         else:
             raise SyntaxError("Unexpected input")
-        self.write_line("</term>")
+        #self.write_line("</term>")
 
     def compile_var_name(self, kind):
         # TODO: delete
@@ -367,13 +376,15 @@ class CompilationEngine:
         self.eat(token_value=')')
 
     def compile_expression_list(self):
-        self.write_line("<expressionList>")
+        #self.write_line("<expressionList>")
         if self.lookahead.value != ')':
             self.compile_expression()
             while self.lookahead.value == ',':
                 self.eat(token_value=',')
                 self.compile_expression()
-        self.write_line("</expressionList>")
+        #self.write_line("</expressionList>")
 
+    '''
     def close(self):
         self.write_file.close()
+    '''
