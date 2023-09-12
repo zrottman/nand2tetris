@@ -95,7 +95,7 @@ class CompilationEngine:
     def compile_class(self):
         self.write_line("<class>")
         self.eat(token_value='class')
-        self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='class')
+        self.cur_class = self.eat(token_type=TokenType.IDENTIFIER)
         self.eat(token_value='{')
         while self.lookahead.value in ['static', 'field']:
             self.compile_class_var()
