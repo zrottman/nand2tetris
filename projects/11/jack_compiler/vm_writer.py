@@ -1,2 +1,0 @@
-class VMWriter:
-    pass
