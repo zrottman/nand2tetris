@@ -12,21 +12,27 @@ class CompilationEngine:
 
     input_filename : str
     tokenizer      : Tokenizer = field(init=False)
-    #output_filename: str = field(init=False)
     lookahead      : Token = field(init=False)
-    #write_file     : typing.IO = field(init=False)
     symbols        : SymbolTable = field(init=False)
     vmwriter       : VMWriter = field(init=False)
+    cur_class      : str = field(init=False) # Hacky - to keep track of current class TODO
+
+    # TODO: delete - relocated to VMWriter
+    #output_filename: str = field(init=False)
+    #write_file     : typing.IO = field(init=False)
     
     def __post_init__(self):
         self.tokenizer = Tokenizer(self.input_filename)
-        #self.output_filename = self.create_output_filename(self.input_filename)
         self.advance_token()
-        #self.write_file = open(self.output_filename, "w")
         self.symbols = SymbolTable()
         self.vmwriter = VMWriter(self.input_filename)
 
+        # TODO: delete - relocated to VMWriter
+        #self.output_filename = self.create_output_filename(self.input_filename)
+        #self.write_file = open(self.output_filename, "w")
+
     '''
+    # TODO: delete - Moved to VMWriter
     def create_output_filename(self, jack_file):
         return ''.join([os.path.splitext(jack_file)[0], '.z', '.xml'])
     '''
@@ -43,17 +49,11 @@ class CompilationEngine:
         '''
         return self.tokenizer.get_next_token(advance_cursor=False)
 
-    def eat(self, token_type=None, token_value=None, symbol_scope=None, symbol_kind = None, identifier_cat=None):
+    def eat(self, token_type=None, token_value=None):
         '''
         TODO: consider having this return 1 if successful or 0 if not. Then I could do something like:
         if not (self.eat(token_value='static') or self.eat(token_value='field'):
             raise SyntaxError
-        '''
-
-        '''
-        is this token being consumed an identifier? if so, add it to the symbol table.
-        well, which kind of identifier is it?
-        is it being defined or used?
         '''
 
         if not self.lookahead:
@@ -133,7 +133,7 @@ class CompilationEngine:
             self.eat(token_value='void')
         else:
             self.compile_type()
-        self.eat(token_type=TokenType.IDENTIFIER, identifier_cat='subroutine')
+        self.eat(token_type=TokenType.IDENTIFIER)
         self.eat(token_value='(')
         self.compile_parameter_list()
         self.eat(token_value=')')
@@ -326,7 +326,7 @@ class CompilationEngine:
 
     def compile_var_name(self, kind):
         # TODO: delete
-        self.eat(token_type=TokenType.IDENTIFIER, symbol_kind=kind)
+        self.eat(token_type=TokenType.IDENTIFIER)
 
     def compile_subroutine_name(self):
         # TODO: delete
@@ -341,13 +341,17 @@ class CompilationEngine:
         # TODO: Need to determine whether the following identifier is a var_name, class_name, or subroutine_name
         # idea: check to see if it's in the symbol table; if so, it's a variable.
         # if self.lookahead.value in self.symbols[SymbolsScope.CLASS] or self.lookahead.value in self.symbols[SymbolsScope.SUBROUTINE]: compile var_name(kind='var')
+        # but if subroutine identifer is var_name...  that must mean that the variable is an instance of an object, but I'm not sure we know if it's a class variable (static or field) or
+        # a subroutine variable (var or arg)... I guess in this case, we just check: first we check the subroutine scope and if it's there, great; otherwise we check class scope; if
+        # it's in neither, that means the identifier is not a var_name but a subroutine_name or class_name
         
-        self.eat(token_type=TokenType.IDENTIFIER) # eat subroutine_name or class_name or var_name
+        token = self.eat(token_type=TokenType.IDENTIFIER) # eat subroutine_name or class_name or var_name
+        # if token in self.symbols[SymbolsScope.CLASS]
         if self.lookahead.value == '(':
             pass
         elif self.lookahead.value == '.':
             self.eat(token_value='.')
-            self.eat(token_type=TokenType.IDENTIFIER)
+            self.eat(token_type=TokenType.IDENTIFIER) # subroutine_name -- thus first identifier above was either class_name or var_name
         else:
             raise SyntaxError("Expected `(` or `.`, got {}".format(self.lookahead.value))
 
@@ -362,9 +366,10 @@ class CompilationEngine:
             while self.lookahead.value == ',':
                 self.eat(token_value=',')
                 self.compile_expression()
-        #self.write_line("</expressionList>")
+        self.write_line("</expressionList>")
 
     '''
+    # Relocated to VMWriter
     def close(self):
         self.write_file.close()
     '''
