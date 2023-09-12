@@ -20,7 +20,7 @@ class SymbolTable:
                 'type': 'int' | 'char' | 'bool' | <class name>,
                 'kind': <SymbolKind.STATIC> | <SymbolKind.FIELD>,
                 'idx' : <int> }
-                }
+                },
 
         SymbolScope.SUBROUTINE: {
             my_var1: {
@@ -31,7 +31,7 @@ class SymbolTable:
                 'type': 'int' | 'char' | 'bool' | <class name>,
                 'kind': <SymbolKind.ARG> | <SymbolKind.VAR>,
                 'idx' : <int> }
-                }
+                },
 
     }
     '''
@@ -78,7 +78,6 @@ class SymbolTable:
                 }
 
     def define(self, name: str, symbol_type: str, symbol_kind: str):
-
         symbol_kind = self.kind_lookup[symbol_kind]
 
         self.symbols[self.scope_lookup[symbol_kind]][name] = {
@@ -89,10 +88,13 @@ class SymbolTable:
 
         self.idx_lookup[symbol_kind] += 1
 
+
+        # Logging
+        '''
         print("adding to symbols table")
         pprint.PrettyPrinter(depth=4).pprint(self.symbols)
-        #print(self.symbols)
         print()
+        '''
 
     def start_subroutine(self):
         self.arg_idx = 0
