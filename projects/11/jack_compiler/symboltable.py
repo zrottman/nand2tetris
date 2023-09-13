@@ -5,7 +5,7 @@ import pprint
 @dataclass
 class SymbolTable:
 
-    symbols      : dict[SymbolScope, dict[str, dict[str, int]]] = field(init=False)
+    symbols      : dict[SymbolScope, dict[str, dict[str, str, int]]] = field(init=False)
     '''
     Symbol Table Structure
     ----------------------
@@ -14,22 +14,22 @@ class SymbolTable:
         SymbolScope.CLASS: {
             my_var1: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind': <SymbolKind.STATIC> | <SymbolKind.FIELD>,
+                'kind' 'static' | 'field' | 'arg' | 'var'
                 'idx' : <int> },
             my_var2: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind': <SymbolKind.STATIC> | <SymbolKind.FIELD>,
+                'kind' 'static' | 'field' | 'arg' | 'var'
                 'idx' : <int> }
                 },
 
         SymbolScope.SUBROUTINE: {
             my_var1: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind': <SymbolKind.ARG> | <SymbolKind.VAR>,
+                'kind' 'static' | 'field' | 'arg' | 'var'
                 'idx' : <int> },
             my_var2: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind': <SymbolKind.ARG> | <SymbolKind.VAR>,
+                'kind' 'static' | 'field' | 'arg' | 'var'
                 'idx' : <int> }
                 },
 
@@ -38,7 +38,7 @@ class SymbolTable:
 
     idx_lookup   : dict[SymbolKind, int]  = field(init=False)
     scope_lookup : dict[SymbolKind, SymbolScope] = field(init=False)
-    kind_lookup  : dict[str, SymbolKind] = field(init=False)
+    #kind_lookup  : dict[str, SymbolKind] = field(init=False) # TODO: delete
 
     def __post_init__(self):
         self.symbols = {
@@ -46,29 +46,50 @@ class SymbolTable:
                 SymbolScope.SUBROUTINE : {}
                 }
 
+
+        '''
         self.idx_lookup = {
                 SymbolKind.STATIC : 0,
                 SymbolKind.FIELD  : 0,
                 SymbolKind.ARG    : 0,
                 SymbolKind.VAR    : 0 
                 }
+        '''
 
+        self.idx_lookup = {
+                'static' : 0,
+                'field'  : 0,
+                'arg'    : 0,
+                'var'    : 0 
+                }
+        
+        '''
         self.scope_lookup = {
                 SymbolKind.STATIC : SymbolScope.CLASS,
                 SymbolKind.FIELD  : SymbolScope.CLASS,
                 SymbolKind.ARG    : SymbolScope.SUBROUTINE,
                 SymbolKind.VAR    : SymbolScope.SUBROUTINE 
                 }
+        '''
+        self.scope_lookup = {
+                'static' : SymbolScope.CLASS,
+                'field'  : SymbolScope.CLASS,
+                'arg'    : SymbolScope.SUBROUTINE,
+                'var'    : SymbolScope.SUBROUTINE 
+                }
 
+        # TODO: delete; store kind as str not enum
+        '''
         self.kind_lookup = {
                 'static': SymbolKind.STATIC,
                 'field' : SymbolKind.FIELD,
                 'arg'   : SymbolKind.ARG,
                 'var'   : SymbolKind.VAR
                 }
+        '''
 
     def define(self, name: str, symbol_type: str, symbol_kind: str):
-        symbol_kind = self.kind_lookup[symbol_kind]
+        #symbol_kind = self.kind_lookup[symbol_kind]
 
         self.symbols[self.scope_lookup[symbol_kind]][name] = {
                 'type': symbol_type,
@@ -85,33 +106,37 @@ class SymbolTable:
         print()
 
     def start_subroutine(self):
+        '''
         self.idx_lookup[SymbolKind.ARG] = 0
         self.idx_lookup[SymbolKind.VAR] = 0
+        '''
+        self.idx_lookup['arg'] = 0
+        self.idx_lookup['var'] = 0
         self.symbols[SymbolScope.SUBROUTINE] = {}
 
-    def var_count(self, symbol_kind: SymbolKind) -> int:
+    def var_count(self, symbol_kind: str) -> int:
         return self.idx_lookup.get(symbol_kind, 0)
 
-    def kind_of(self, name: str) -> SymbolKind:
-        if name in symbols[SymbolScope.SUBROUTINE]:
-            return symbols[SymbolScope.SUBROUTINE][name]['kind']
-        elif name in symbols[SymbolScope.CLASS]:
-            return symbols[SymbolScope.CLASS][name]['kind']
+    def kind_of(self, name: str) -> str:
+        if name in self.symbols[SymbolScope.SUBROUTINE]:
+            return self.symbols[SymbolScope.SUBROUTINE][name]['kind']
+        elif name in self.symbols[SymbolScope.CLASS]:
+            return self.symbols[SymbolScope.CLASS][name]['kind']
         else:
             raise SyntaxError("Unknown symbol {}".format(name))
 
-    def type_of(self, name: str) -> TokenType:
-        if name in symbols[SymbolScope.SUBROUTINE]:
-            return symbols[SymbolScope.SUBROUTINE][name]['type']
-        elif name in symbols[SymbolScope.CLASS]:
-            return symbols[SymbolScope.CLASS][name]['type']
+    def type_of(self, name: str) -> str:
+        if name in self.symbols[SymbolScope.SUBROUTINE]:
+            return self.symbols[SymbolScope.SUBROUTINE][name]['type']
+        elif name in self.symbols[SymbolScope.CLASS]:
+            return self.symbols[SymbolScope.CLASS][name]['type']
         else:
             raise SyntaxError("Unknown symbol {}".format(name))
 
     def index_of(self, name: str) -> int:
-        if name in symbols[SymbolScope.SUBROUTINE]:
-            return symbols[SymbolScope.SUBROUTINE][name]['idx']
-        elif name in symbols[SymbolScope.CLASS]:
-            return symbols[SymbolScope.CLASS][name]['idx']
+        if name in self.symbols[SymbolScope.SUBROUTINE]:
+            return self.symbols[SymbolScope.SUBROUTINE][name]['idx']
+        elif name in self.symbols[SymbolScope.CLASS]:
+            return self.symbols[SymbolScope.CLASS][name]['idx']
         else:
             raise SyntaxError("Unknown symbol {}".format(name))

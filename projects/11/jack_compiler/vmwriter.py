@@ -44,11 +44,13 @@ class VMWriter:
         self.write_file.write(line)
         self.write_file.write('\n')
 
-    def write_push(self, segment: Segment, idx: int):
-        self.write_line(' '.join(['push', segment_lookup[segment], idx]))
+    def write_push(self, segment: str, idx: int):
+        #self.write_line(' '.join(['push', segment_lookup[segment], idx]))
+        self.write_line(' '.join(['push', segment, str(idx)]))
 
-    def write_pop(self, segment: Segment, idx: int):
-        self.write_line(' '.join(['pop', segment_lookup[segment], idx]))
+    def write_pop(self, segment: str, idx: int):
+        #self.write_line(' '.join(['pop', segment_lookup[segment], idx]))
+        self.write_line(' '.join(['pop', segment, str(idx)]))
 
     def write_arithmetic(self, command: Command):
         self.write_line(command_lookup[command])
