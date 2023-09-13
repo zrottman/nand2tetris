@@ -133,15 +133,17 @@ class CompilationEngine:
             self.eat(token_value='void')
         else:
             self.compile_type()
-        self.eat(token_type=TokenType.IDENTIFIER)
+        f_name = self.eat(token_type=TokenType.IDENTIFIER)
         self.eat(token_value='(')
-        self.compile_parameter_list()
+        n_params = self.compile_parameter_list()
         self.eat(token_value=')')
+        self.vmwriter.write_function('.'.join([self.cur_class, f_name]), n_params) # function <class>.<func_name> <n_params>
         self.compile_subroutine_body()
         self.write_line("</subroutineDec>")
 
     def compile_parameter_list(self):
         self.write_line("<parameterList>")
+        n_params = 0
 
         cur_symbol = {}
 
@@ -150,13 +152,16 @@ class CompilationEngine:
             cur_symbol['type'] = self.compile_type() # 'int' | 'char' | 'boolean' | class name
             cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
             self.add_symbol(cur_symbol)
+            n_params += 1
             while self.lookahead.value == ',':
                 self.eat(token_value=',')
                 cur_symbol['type'] = self.compile_type()
                 cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
                 self.add_symbol(cur_symbol)
+                n_params += 1
 
         self.write_line("</parameterList>")
+        return n_params
 
     def compile_subroutine_body(self):
         self.write_line("<subroutineBody>")
