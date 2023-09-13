@@ -14,7 +14,7 @@ class VMWriter:
 
     def __post_init__(self):
         self.output_filename = self.create_output_filename(self.input_filename)
-        self.writefile = open(self.output_filename, 'w')
+        self.write_file = open(self.output_filename, 'w')
         segment_lookup = {
                 Segment.CONST   : 'constant',
                 Segment.ARG     : 'argument',
@@ -40,32 +40,36 @@ class VMWriter:
     def create_output_filename(self, jack_file):
         return ''.join([os.path.splitext(jack_file)[0], '.z', '.vm'])
 
+    def write_line(self, line):
+        self.write_file.write(line)
+        self.write_file.write('\n')
+
     def write_push(self, segment: Segment, idx: int):
-        self.write_file.write(' '.join(['push', segment_lookup[segment], idx]))
+        self.write_line(' '.join(['push', segment_lookup[segment], idx]))
 
     def write_pop(self, segment: Segment, idx: int):
-        self.write_file.write(' '.join(['pop', segment_lookup[segment], idx]))
+        self.write_line(' '.join(['pop', segment_lookup[segment], idx]))
 
     def write_arithmetic(self, command: Command):
-        self.write_file.write(command_lookup[command])
+        self.write_line(command_lookup[command])
 
     def write_label(self, label: str):
-        self.write_file.write(' '.join(['label', label]))
+        self.write_line(' '.join(['label', label]))
 
     def write_goto(self, label: str):
-        self.write_file.write(' '.join(['goto', label]))
+        self.write_line(' '.join(['goto', label]))
 
     def write_if(self, label: str):
-        self.write_file.write(' '.join(['if', label]))
+        self.write_line(' '.join(['if', label]))
 
     def write_call(self, name: str, n_args: int):
-        self.write_file.write(' '.join(['call', name, str(n_args)]))
+        self.write_line(' '.join(['call', name, str(n_args)]))
 
     def write_function(self, name: str, n_locals: int):
-        self.write_file.write(' '.join(['function', name, str(n_locals)]))
+        self.write_line(' '.join(['function', name, str(n_locals)]))
 
     def write_return(self):
-        self.write_file.write('return')
+        self.write_line('return')
 
     def close(self):
-        self.writefile.close()
+        self.write_file.close()
