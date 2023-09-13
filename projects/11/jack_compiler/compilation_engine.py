@@ -128,7 +128,7 @@ class CompilationEngine:
     def compile_subroutine(self):
         self.write_line("<subroutineDec>")
         self.symbols.start_subroutine()
-        self.eat(token_type=TokenType.KEYWORD) # constructor | function | method
+        subroutine_kind = self.eat(token_type=TokenType.KEYWORD) # constructor | function | method
         if self.lookahead.value == 'void':
             self.eat(token_value='void')
         else:
@@ -137,6 +137,8 @@ class CompilationEngine:
         self.eat(token_value='(')
         n_params = self.compile_parameter_list()
         self.eat(token_value=')')
+        if subroutine_kind == 'method':
+            n_params += 1 # methods operate on k + 1 args where arg 0 is `this`
         self.vmwriter.write_function('.'.join([self.cur_class, f_name]), n_params) # function <class>.<func_name> <n_params>
         self.compile_subroutine_body()
         self.write_line("</subroutineDec>")
