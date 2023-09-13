@@ -128,7 +128,7 @@ class CompilationEngine:
     def compile_subroutine(self):
         self.write_line("<subroutineDec>")
         self.symbols.start_subroutine()
-        self.eat(token_type=TokenType.KEYWORD) # already ensured token.value is constructor, function, or method
+        self.eat(token_type=TokenType.KEYWORD) # constructor | function | method
         if self.lookahead.value == 'void':
             self.eat(token_value='void')
         else:
