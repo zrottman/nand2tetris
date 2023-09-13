@@ -95,7 +95,8 @@ class CompilationEngine:
     def compile_class(self):
         self.write_line("<class>")
         self.eat(token_value='class')
-        self.cur_class = self.eat(token_type=TokenType.IDENTIFIER)
+
+        self.cur_class = self.eat(token_type=TokenType.IDENTIFIER) # set cur_class for use in compiling functions
         self.eat(token_value='{')
         while self.lookahead.value in ['static', 'field']:
             self.compile_class_var()
@@ -113,13 +114,13 @@ class CompilationEngine:
         cur_symbol['type'] = self.compile_type() # 'int' | 'char' | 'boolean' | class_name
         cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER) # TODO: consider reinstating compile_var_name()
 
-        # add cur_symbol to symbols table
+        # add symbol to symbols table
         self.add_symbol(cur_symbol)
 
+        # add additional symbols to symbols table
         while self.lookahead.value == ',':
             self.eat(token_value=',')
             cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
-            # add cur_symbol to symbols table
             self.add_symbol(cur_symbol)
 
         self.eat(token_value=';')
@@ -127,15 +128,17 @@ class CompilationEngine:
 
     def compile_subroutine(self):
         self.write_line("<subroutineDec>")
-        self.symbols.start_subroutine()
+
+        self.symbols.start_subroutine() # init subroutine symbols
+
         subroutine_kind = self.eat(token_type=TokenType.KEYWORD) # constructor | function | method
         if self.lookahead.value == 'void':
             self.eat(token_value='void')
         else:
             self.compile_type()
-        f_name = self.eat(token_type=TokenType.IDENTIFIER)
+        f_name = self.eat(token_type=TokenType.IDENTIFIER) # function name
         self.eat(token_value='(')
-        n_params = self.compile_parameter_list()
+        n_params = self.compile_parameter_list() # num parameters
         self.eat(token_value=')')
         if subroutine_kind == 'method':
             n_params += 1 # methods operate on k + 1 args where arg 0 is `this`
@@ -153,8 +156,12 @@ class CompilationEngine:
             cur_symbol['kind'] = 'arg'
             cur_symbol['type'] = self.compile_type() # 'int' | 'char' | 'boolean' | class name
             cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
+
+            # add param to symbols table
             self.add_symbol(cur_symbol)
             n_params += 1
+
+            # add additional params to symbols table
             while self.lookahead.value == ',':
                 self.eat(token_value=',')
                 cur_symbol['type'] = self.compile_type()
@@ -195,11 +202,16 @@ class CompilationEngine:
         cur_symbol['kind'] = self.eat(token_value='var')
         cur_symbol['type'] = self.compile_type()
         cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
+
+        # add var to symbols table
         self.add_symbol(cur_symbol)
+
+        # add additional vars to symbols table
         while self.lookahead.value == ',':
             self.eat(token_value=',')
             cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
             self.add_symbol(cur_symbol)
+
         self.eat(token_value=';')
         self.write_line("</varDec>")
         
