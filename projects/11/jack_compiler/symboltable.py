@@ -14,22 +14,22 @@ class SymbolTable:
         SymbolScope.CLASS: {
             my_var1: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind' 'static' | 'field' | 'arg' | 'var'
+                'kind': 'static' | 'field'
                 'idx' : <int> },
             my_var2: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind' 'static' | 'field' | 'arg' | 'var'
+                'kind': 'static' | 'field' | 'arg' | 'var'
                 'idx' : <int> }
                 },
 
         SymbolScope.SUBROUTINE: {
             my_var1: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind' 'static' | 'field' | 'arg' | 'var'
+                'kind': 'static' | 'field' | 'arg' | 'var'
                 'idx' : <int> },
             my_var2: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind' 'static' | 'field' | 'arg' | 'var'
+                'kind': 'static' | 'field' | 'arg' | 'var'
                 'idx' : <int> }
                 },
 
@@ -105,7 +105,7 @@ class SymbolTable:
         pprint.PrettyPrinter(depth=4).pprint(self.symbols)
         print()
 
-    def start_subroutine(self):
+    def start_subroutine(self, f_name):
         '''
         self.idx_lookup[SymbolKind.ARG] = 0
         self.idx_lookup[SymbolKind.VAR] = 0

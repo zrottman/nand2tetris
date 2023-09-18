@@ -1,4 +1,3 @@
-from dataclasses import dataclass, field
 from .tokenizer import Tokenizer, Token
 import os.path
 import typing
@@ -16,6 +15,8 @@ class CompilationEngine:
     symbols        : SymbolTable = field(init=False)
     vmwriter       : VMWriter = field(init=False)
     cur_class      : str = field(init=False) # Hacky - to keep track of current class TODO
+    op_lookup      : dict[str, str] = field(init=False)
+    unaryop_lookup : dict[str, str] = field(init=False)
 
     # TODO: delete - relocated to VMWriter
     #output_filename: str = field(init=False)
@@ -26,6 +27,23 @@ class CompilationEngine:
         self.advance_token()
         self.symbols = SymbolTable()
         self.vmwriter = VMWriter(self.input_filename)
+
+        self.op_lookup = {
+                '+': 'add',
+                '-': 'sub',
+                '*': 'call Math.multiply 2', # TODO: correct?
+                '/': 'call Math.divide 2',
+                '&': 'and',
+                '|': 'or',
+                '<': 'lt',
+                '>': 'gt',
+                '=': 'eq'
+                }
+
+        self.unaryop_lookup = {
+                '-': 'neg',
+                '~': 'not'
+                }
 
         # TODO: delete - relocated to VMWriter
         #self.output_filename = self.create_output_filename(self.input_filename)
@@ -97,6 +115,7 @@ class CompilationEngine:
         self.eat(token_value='class')
 
         self.cur_class = self.eat(token_type=TokenType.IDENTIFIER) # set cur_class for use in compiling functions
+
         self.eat(token_value='{')
         while self.lookahead.value in ['static', 'field']:
             self.compile_class_var()
@@ -129,26 +148,31 @@ class CompilationEngine:
     def compile_subroutine(self):
         self.write_line("<subroutineDec>")
 
-        self.symbols.start_subroutine() # init subroutine symbols
 
         subroutine_kind = self.eat(token_type=TokenType.KEYWORD) # constructor | function | method
+
         if self.lookahead.value == 'void':
             self.eat(token_value='void')
         else:
             self.compile_type()
         f_name = self.eat(token_type=TokenType.IDENTIFIER) # function name
-        self.eat(token_value='(')
-        n_params = self.compile_parameter_list() # num parameters
-        self.eat(token_value=')')
+        self.symbols.start_subroutine(f_name) # init subroutine symbols
         if subroutine_kind == 'method':
-            n_params += 1 # methods operate on k + 1 args where arg 0 is `this`
-        self.vmwriter.write_function('.'.join([self.cur_class, f_name]), n_params) # function <class>.<func_name> <n_params>
+            self.add_symbol({'name':'this', 'type':f_name, 'kind':'arg'})
+        self.eat(token_value='(')
+
+        self.compile_parameter_list() # consider not having this return num params
+        self.eat(token_value=')')
+
         self.compile_subroutine_body()
+
+        self.vmwriter.write_function('.'.join([self.cur_class, f_name]), self.symbols.var_count('var')) # function <class>.<func_name> <>
+
         self.write_line("</subroutineDec>")
 
     def compile_parameter_list(self):
         self.write_line("<parameterList>")
-        n_params = 0
+        #n_params = 0
 
         cur_symbol = {}
 
@@ -159,7 +183,7 @@ class CompilationEngine:
 
             # add param to symbols table
             self.add_symbol(cur_symbol)
-            n_params += 1
+            #n_params += 1
 
             # add additional params to symbols table
             while self.lookahead.value == ',':
@@ -167,10 +191,10 @@ class CompilationEngine:
                 cur_symbol['type'] = self.compile_type()
                 cur_symbol['name'] = self.eat(token_type=TokenType.IDENTIFIER)
                 self.add_symbol(cur_symbol)
-                n_params += 1
+                #n_params += 1
 
         self.write_line("</parameterList>")
-        return n_params
+        return
 
     def compile_subroutine_body(self):
         self.write_line("<subroutineBody>")
@@ -178,6 +202,10 @@ class CompilationEngine:
         while self.lookahead.value == 'var':
             self.compile_var()
         self.compile_statements()
+
+        # query symbol table for var_count for 'var'
+        # emit vm: function <class.func_name> <n_vars from above>
+
         self.eat(token_value='}')
         self.write_line("</subroutineBody>")
 
@@ -237,14 +265,21 @@ class CompilationEngine:
     def compile_let(self):
         self.write_line("<letStatement>")
         self.eat(token_value='let')
-        self.eat(token_type=TokenType.IDENTIFIER)
+
+        var_name = self.eat(token_type=TokenType.IDENTIFIER)
+
+        # deal with arrays
         if self.lookahead.value == '[':
             self.eat(token_value='[')
             self.compile_expression()
             self.eat(token_value=']')
+
         self.eat(token_value='=')
         self.compile_expression()
         self.eat(token_value=';')
+
+        self.vmwriter.write_pop(self.symbols.kind_of(var_name), self.symbols.index_of(var_name))
+
         self.write_line("</letStatement>")
 
     def compile_if(self):
@@ -279,6 +314,7 @@ class CompilationEngine:
         self.eat(token_value='do')
         self.compile_subroutine_call()
         self.eat(token_value=';')
+        self.vmwriter.write_pop('temp', 0)
         self.write_line("</doStatement>")
 
     def compile_return(self):
@@ -286,15 +322,21 @@ class CompilationEngine:
         self.eat(token_value='return')
         if self.lookahead.value != ';':
             self.compile_expression()
+        else:
+            self.vmwriter.write_push('constant', 0)
         self.eat(token_value=';')
         self.write_line("</returnStatement>")
 
     def compile_expression(self):
         self.write_line("<expression>")
+
         self.compile_term()
+
         while self.lookahead.value in ['+', '-', '*', '/', '&', '|', '<', '>', '=']:
-            self.eat(token_value=self.lookahead.value) # TODO this is hacky, fix
+            op = self.eat(token_value=self.lookahead.value) # TODO this is hacky, fix
             self.compile_term()
+            self.vmwriter.write_arithmetic(self.op_lookup[op])
+
         self.write_line("</expression>")
 
     def compile_term(self):
@@ -302,20 +344,54 @@ class CompilationEngine:
 
         # integer constant
         if self.lookahead._type == TokenType.INT_CONST:
-            self.eat(token_type=TokenType.INT_CONST)
+            num = self.eat(token_type=TokenType.INT_CONST)
+            self.vmwriter.write_push('constant', num) # push constant n
 
         # string constant
         elif self.lookahead._type == TokenType.STRING_CONST:
-            self.eat(token_type=TokenType.STRING_CONST)
+            string = self.eat(token_type=TokenType.STRING_CONST)
+
+            str_len = len(string)
+
+            # push constant str_len
+            self.vmwriter.write_push('constant', str_len)
+
+            # call String.new 1
+            self.vmwriter.write_function('String.new', 1) # check syntax
+            # top of stack is pointer to the string
+
+            for c in string:
+
+                # TODO: USE fzf!!!
+
+                # -----
+                # STACK
+                # -----
+                # *(string)
+                # character code
+                # call String.appendChar 2
+
+                self.vmwriter.write_push('constant', ord(c))
+                self.vmwriter.write_function('String.appendChar', 2)
+
 
         # keyword constant
         elif self.lookahead.value in ['true', 'false', 'null', 'this']:
-            self.eat(token_value=self.lookahead.value) # TODO: hacky like in compile_expression
+            keyword = self.eat(token_value=self.lookahead.value) # TODO: hacky like in compile_expression
+            if keyword in ['null', 'false']:
+                self.vmwriter.write_push('constant', 0)
+            elif keyword == 'true':
+                self.vmwriter.write_push('constant', 1)
+                self.vmwriter.write_arithmetic('neg')
+            else:
+                # if you encounter `this`, you must be inside a class method, where `this` is arg 0
+                self.vmwriter.write_push('arg', 0) # this
 
         # unaryop term
         elif self.lookahead.value in ['-', '~']:
-            self.eat(token_value=self.lookahead.value) # TODO: hacky like in compile_expression
+            op = self.eat(token_value=self.lookahead.value) # TODO: hacky like in compile_expression
             self.compile_term()
+            self.vmwrite_arithmetic(self.unaryop_lookup[op])
 
         # ( expression )
         elif self.lookahead.value == '(':
@@ -326,7 +402,7 @@ class CompilationEngine:
         # var_name | varname [ expression ] | subroutine call
         elif self.lookahead._type == TokenType.IDENTIFIER:
 
-        # var_name [ expression ]
+        # var_name [ expression ] -> array notation?
             if self.peek().value == '[':
                 self.eat(token_type=TokenType.IDENTIFIER) # symboltable: either var, static, or field
                 self.eat(token_value='[')
@@ -338,7 +414,9 @@ class CompilationEngine:
 
         # var_name
             else:
-                self.eat(token_type=TokenType.IDENTIFIER) # syboltable: either var, static, or field
+                var_name = self.eat(token_type=TokenType.IDENTIFIER) # symboltable: either var, static, or field
+                self.vmwriter.write_push(self.symbols.kind_of(var_name), self.symbols.index_of(var_name)) # push <kind> <idx>
+
         else:
             raise SyntaxError("Unexpected input")
         self.write_line("</term>")
@@ -357,15 +435,48 @@ class CompilationEngine:
 
     def compile_subroutine_call(self):
 
-        # TODO: Need to determine whether the following identifier is a var_name, class_name, or subroutine_name
-        # idea: check to see if it's in the symbol table; if so, it's a variable.
-        # if self.lookahead.value in self.symbols[SymbolsScope.CLASS] or self.lookahead.value in self.symbols[SymbolsScope.SUBROUTINE]: compile var_name(kind='var')
-        # but if subroutine identifer is var_name...  that must mean that the variable is an instance of an object, but I'm not sure we know if it's a class variable (static or field) or
-        # a subroutine variable (var or arg)... I guess in this case, we just check: first we check the subroutine scope and if it's there, great; otherwise we check class scope; if
-        # it's in neither, that means the identifier is not a var_name but a subroutine_name or class_name
+        # DON'T PASS THIS
+        # <className> '.' <subroutineName> '(' <expressionList> ')'
+        # This is the class function case
+        # e.g., Math.multiply(x, y)
+        # call <subroutineName> <n_expressions>
         
-        token = self.eat(token_type=TokenType.IDENTIFIER) # eat subroutine_name or class_name or var_name
-        # if token in self.symbols[SymbolsScope.CLASS]
+        # PASS THIS
+        # akin to self.my_method() in python -- internal invocation
+        # <subroutineName> '(' <expressionList> ')'
+        # this is an object's method called from within an object/class
+        # my_func(arg1, arg2)
+        # commision(this, arg1, arg2)
+        # call <subroutineName> <n_args>
+        # query subroutine_scope symbol table for count_of arguments
+
+        # <varName> '.' <subroutineName> '(' <expressionList> ')'
+        # this is a object's method -- external invocation
+        # class_instance.class_method(this, arg1, arg2)
+        # push arg 0 first for class instance
+        # e.g., my_bank_account.get_info()
+        # call <subroutineName> <n_expressions>
+
+        # Function
+        # push x 
+        # push y 
+        # call my_func 2
+
+        # Method
+        # push var_name where var_name is class instance
+        # push x
+        # push y
+        # call my_func 3
+
+
+        token = self.eat(token_type=TokenType.IDENTIFIER) # <subroutine_name> | <class_name> | <var_name>
+
+        # if token in self.symbols[SymbolsScope.SUBROUTINE] : <- then it's a <varname>.<method>() format
+        # in that case, get kind and index of <varname> from symbols table 
+
+        # if it's not in the symbol table, it is a subroutine name or class name
+
+
         if self.lookahead.value == '(':
             pass
         elif self.lookahead.value == '.':
@@ -375,17 +486,26 @@ class CompilationEngine:
             raise SyntaxError("Expected `(` or `.`, got {}".format(self.lookahead.value))
 
         self.eat(token_value='(')
-        self.compile_expression_list() 
+        n_args = self.compile_expression_list() 
         self.eat(token_value=')')
+
+        # let compile_parameter_list do the pushing of the requisite variables
+
+        # self.vmwriter.write_call(call <func name> <n args>)
+        # to figure out n_args, query symbol table for var_count of args
 
     def compile_expression_list(self):
         self.write_line("<expressionList>")
+        n_expressions = 0 # replace this with symbol_table.get_count()
         if self.lookahead.value != ')':
             self.compile_expression()
+            n_expressions += 1
             while self.lookahead.value == ',':
                 self.eat(token_value=',')
                 self.compile_expression()
+                n_expressions += 1
         self.write_line("</expressionList>")
+        return n_expressions
 
     '''
     # Relocated to VMWriter
