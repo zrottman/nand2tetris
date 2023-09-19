@@ -20,10 +20,6 @@ class CompilationEngine:
     unaryop_lookup : dict[str, str] = field(init=False)
     label_num      : int = field(init=False)
 
-    # TODO: delete - relocated to VMWriter
-    #output_filename: str = field(init=False)
-    #write_file     : typing.IO = field(init=False)
-    
     def __post_init__(self):
         self.tokenizer = Tokenizer(self.input_filename)
         self.advance_token()
@@ -47,16 +43,6 @@ class CompilationEngine:
                 '-': 'neg',
                 '~': 'not'
                 }
-
-        # TODO: delete - relocated to VMWriter
-        #self.output_filename = self.create_output_filename(self.input_filename)
-        #self.write_file = open(self.output_filename, "w")
-
-    '''
-    # TODO: delete - Moved to VMWriter
-    def create_output_filename(self, jack_file):
-        return ''.join([os.path.splitext(jack_file)[0], '.z', '.xml'])
-    '''
 
     def advance_token(self):
         self.lookahead = self.tokenizer.get_next_token()
@@ -175,16 +161,18 @@ class CompilationEngine:
         
         self.eat(token_value=')')
 
-        # emit VM: function <class>.<func_name> <n_locals>
-        self.vmwriter.write_function('.'.join([self.cur_class, f_name]), self.symbols.var_count('var')) 
         
+        # emit VM: function <class>.<func_name> <n_locals>
+        # self.vmwriter.write_function('.'.join([self.cur_class, f_name]), self.symbols.var_count('var')) 
+
         # deal with memory allocation for constructors
         if subroutine_kind == 'constructor':
             self.vmwriter.write_push('constant', self.symbols.var_count('field'))
             self.vmwriter.write_call('Memory.alloc', 1)
             self.vmwriter.write_pop('pointer', 0)
 
-        self.compile_subroutine_body()
+        self.compile_subroutine_body(f_name)
+
 
         self.write_line("</subroutineDec>")
 
@@ -215,11 +203,16 @@ class CompilationEngine:
 
         return
 
-    def compile_subroutine_body(self):
+    def compile_subroutine_body(self, f_name):
         self.write_line("<subroutineBody>")
         self.eat(token_value='{')
         while self.lookahead.value == 'var':
             self.compile_var()
+
+        # emit VM: function <class>.<func_name> <n_locals>: needs to happen here to have access to var count
+        self.vmwriter.write_function('.'.join([self.cur_class, f_name]), self.symbols.var_count('var')) 
+
+        
         self.compile_statements()
         self.eat(token_value='}')
         self.write_line("</subroutineBody>")
@@ -267,15 +260,25 @@ class CompilationEngine:
     def compile_statement(self):
         match self.lookahead.value:
             case 'let':
+                self.vmwriter.write_comment('<let>')
                 self.compile_let()
+                self.vmwriter.write_comment('</let>')
             case 'if':
+                self.vmwriter.write_comment('<if>')
                 self.compile_if()
+                self.vmwriter.write_comment('</if>')
             case 'while':
+                self.vmwriter.write_comment('<while>')
                 self.compile_while()
+                self.vmwriter.write_comment('</while>')
             case 'do':
+                self.vmwriter.write_comment('<do>')
                 self.compile_do()
+                self.vmwriter.write_comment('</do>')
             case 'return':
+                self.vmwriter.write_comment('<return>')
                 self.compile_return()
+                self.vmwriter.write_comment('</return>')
 
     def compile_let(self):
         self.write_line("<letStatement>")
@@ -332,7 +335,7 @@ class CompilationEngine:
         self.compile_expression()
         self.eat(token_value=')')
         self.vmwriter.write_arithmetic('not')
-        self.vmwrite.write_if(label_end)
+        self.vmwriter.write_if(label_end)
         self.eat(token_value='{')
         self.compile_statements()
         self.eat(token_value='}')
@@ -421,7 +424,7 @@ class CompilationEngine:
         elif self.lookahead.value in ['-', '~']:
             op = self.eat(token_value=self.lookahead.value) # TODO: hacky like in compile_expression
             self.compile_term()
-            self.vmwrite_arithmetic(self.unaryop_lookup[op])
+            self.vmwriter.write_arithmetic(self.unaryop_lookup[op])
 
         # ( expression )
         elif self.lookahead.value == '(':
@@ -519,9 +522,3 @@ class CompilationEngine:
                 n_expressions += 1
         self.write_line("</expressionList>")
         return n_expressions
-
-    '''
-    # Relocated to VMWriter
-    def close(self):
-        self.write_file.close()
-    '''

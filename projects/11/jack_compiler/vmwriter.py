@@ -100,5 +100,8 @@ class VMWriter:
         # return
         self.write_line('return')
 
+    def write_comment(self, comment):
+        self.write_line('// ' + comment)
+
     def close(self):
         self.write_file.close()
