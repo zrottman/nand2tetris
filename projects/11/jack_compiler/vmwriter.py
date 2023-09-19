@@ -56,7 +56,8 @@ class VMWriter:
         '''
 
     def create_output_filename(self, jack_file):
-        return ''.join([os.path.splitext(jack_file)[0], '.z', '.vm'])
+        #return ''.join([os.path.splitext(jack_file)[0], '.z', '.vm'])
+        return ''.join([os.path.splitext(jack_file)[0], '.vm'])
 
     def write_line(self, line):
         self.write_file.write(line)
