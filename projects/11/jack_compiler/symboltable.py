@@ -25,11 +25,11 @@ class SymbolTable:
         SymbolScope.SUBROUTINE: {
             my_var1: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind': 'static' | 'field' | 'arg' | 'var'
+                'kind': 'arg' | 'var'
                 'idx' : <int> },
             my_var2: {
                 'type': 'int' | 'char' | 'bool' | <class name>,
-                'kind': 'static' | 'field' | 'arg' | 'var'
+                'kind': 'arg' | 'var'
                 'idx' : <int> }
                 },
 
@@ -140,3 +140,11 @@ class SymbolTable:
             return self.symbols[SymbolScope.CLASS][name]['idx']
         else:
             raise SyntaxError("Unknown symbol {}".format(name))
+
+    def contains(self, name: str) -> bool:
+        if name in self.symbols[SymbolScope.SUBROUTINE]:
+            return True
+        elif name in self.symbols[SymbolScope.CLASS]:
+            return True
+        else:
+            return False

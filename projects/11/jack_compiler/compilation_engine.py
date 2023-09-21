@@ -165,13 +165,15 @@ class CompilationEngine:
         # emit VM: function <class>.<func_name> <n_locals>
         # self.vmwriter.write_function('.'.join([self.cur_class, f_name]), self.symbols.var_count('var')) 
 
-        # deal with memory allocation for constructors
-        if subroutine_kind == 'constructor':
-            self.vmwriter.write_push('constant', self.symbols.var_count('field'))
-            self.vmwriter.write_call('Memory.alloc', 1)
-            self.vmwriter.write_pop('pointer', 0)
+        # is this where I allocate memory for constructors?
 
-        self.compile_subroutine_body(f_name)
+        self.compile_subroutine_body(f_name, subroutine_kind)
+
+        '''
+        if subroutine_kind == 'constructor':
+            # push pointer 0
+            # return
+        '''
 
 
         self.write_line("</subroutineDec>")
@@ -203,7 +205,7 @@ class CompilationEngine:
 
         return
 
-    def compile_subroutine_body(self, f_name):
+    def compile_subroutine_body(self, f_name, sub_kind):
         self.write_line("<subroutineBody>")
         self.eat(token_value='{')
         while self.lookahead.value == 'var':
@@ -212,8 +214,24 @@ class CompilationEngine:
         # emit VM: function <class>.<func_name> <n_locals>: needs to happen here to have access to var count
         self.vmwriter.write_function('.'.join([self.cur_class, f_name]), self.symbols.var_count('var')) 
 
+        # deal with memory allocation for constructors
+        if sub_kind == 'constructor':
+            # push constant <num fields>
+            self.vmwriter.write_push('constant', self.symbols.var_count('field'))
+            # call Memory.alloc 1 (arg is the number of fields to allocate space for)
+            self.vmwriter.write_call('Memory.alloc', 1)
+            # pop pointer 0
+            self.vmwriter.write_pop('pointer', 0)
+
+
+
+        elif sub_kind == 'method':
+            self.vmwriter.write_push('arg', 0) # Seems not quite right... I think we want to look up `this` and push that
+            self.vmwriter.write_pop('pointer', 0)
+
         
-        self.compile_statements()
+        self.compile_statements() # return statement gets compiled here
+
         self.eat(token_value='}')
         self.write_line("</subroutineBody>")
 
@@ -352,6 +370,11 @@ class CompilationEngine:
         self.write_line("</doStatement>")
 
     def compile_return(self):
+        '''
+        we want to know what kind of subroutine we're returning from at this point, because
+        if it's a constructor, we need to push pointer 0 prior to returning
+        '''
+
         self.write_line("<returnStatement>")
         self.eat(token_value='return')
         if self.lookahead.value != ';':
@@ -417,8 +440,8 @@ class CompilationEngine:
                 self.vmwriter.write_push('constant', 1)
                 self.vmwriter.write_arithmetic('neg')
             else:
-                # if you encounter `this`, you must be inside a class method, where `this` is arg 0
-                self.vmwriter.write_push('arg', 0) # this
+                # if you encounter `this`
+                self.vmwriter.write_push('pointer', 0)
 
         # unaryop term
         elif self.lookahead.value in ['-', '~']:
@@ -475,40 +498,69 @@ class CompilationEngine:
         # * Do not pass `this`
         
         # <subroutineName> '(' <expressionList> ')'
-        # akin to self.my_method() in python -- internal invocation
+        # akin to self.my_method() in python -- internal invocation OR constructor function
         # my_func(this, arg1, arg2)
         # call <subroutineName> <n_args>
         # query subroutine_scope symbol table for count_of arguments
+        # do moveUp()
+        # if `this` is in symbol table, then it's an internal invocation of a cuntion: push the kind and idx of `this`
+        # else we're in a constructor, so do something... 
 
         # <varName> '.' <subroutineName> '(' <expressionList> ')'
         # this is a object's method -- external invocation
         # class_instance.class_method(this, arg1, arg2)
         # call <subroutineName> <n_args>
 
+
         token = self.eat(token_type=TokenType.IDENTIFIER) # <subroutine_name> | <class_name> | <var_name>
+        n_expressions = 0
+
 
         if self.lookahead.value == '(':
-            # if we get here, `token` is subroutine
-            call_name = token
-            self.vmwriter.write_push('arg', 0)
+            # Scenario 1: <subroutine name>.(<expression list>)
+            # This is either a method being called from within the class OR a constructor
+            # `token` above is the name of the subroutine
+
+            # Scenario 1A: Internal invocation of class method
+            # In this case, `this` should be in the symbol table, so push kind and idx of this:
+            # self.vmwriter.write_push(self.symbols.kind_of('this'), self.symbols.index_of('this'))
+
+            # Scenario 1B: Constructor
+            # In this case, `this` will not be in the symbol table, so push this?
+            call_name = '.'.join([self.cur_class, token])
+
+            if self.symbols.contains('this'):
+                # Internal invocation of class method
+                self.vmwriter.write_push(self.symbols.kind_of('this'), self.symbols.index_of('this'))
+            else:
+                # Constructor function: Since we're in a constructor function, we need to push the newly-allocated object
+                # onto the stack for use as the first arg to this class method
+                self.vmwriter.write_push('pointer', 0)
+
+            n_expressions += 1
             pass
         elif self.lookahead.value == '.':
-            # if we get here, `token` is either class_name or var name
+            # Scenario 2 or 3: `token` is either class_name or var name
             self.eat(token_value='.')
-            call_name = '.'.join([token, self.eat(token_type=TokenType.IDENTIFIER)]) # subroutine_name 
-            # if token in self.symbols[SymbolsScope.SUBROUTINE], then it's a <varname>.<method>() format
-            if token in self.symbols.symbols[SymbolScope.SUBROUTINE]:
-                self.vmwriter.write_push('arg', 0)
-
+            if self.symbols.contains(token):
+                # Scenario 2: <varName>.<subroutineName>(<expressionList>)
+                # This is an external invocation of a method on object `token`
+                call_name = '.'.join([self.symbols.type_of(token), self.eat(token_type=TokenType.IDENTIFIER)])
+                self.vmwriter.write_push(self.symbols.kind_of(token), self.symbols.index_of(token))
+                n_expressions += 1
+            else:
+                # Scenario 3: <className>.<subroutineName>(<expressionList>)
+                # This is a function
+                call_name = '.'.join([token, self.eat(token_type=TokenType.IDENTIFIER)]) # subroutine_name 
 
         else:
             raise SyntaxError("Expected `(` or `.`, got {}".format(self.lookahead.value))
 
         self.eat(token_value='(')
-        n_expressions = self.compile_expression_list() 
+        n_expressions += self.compile_expression_list() 
         self.eat(token_value=')')
 
-        self.vmwriter.write_call(call_name, n_expressions)
+        self.vmwriter.write_call(call_name, n_expressions) # not working when it's a method and needs to default to one expression
 
     def compile_expression_list(self):
         n_expressions = 0
