@@ -1,0 +1,5 @@
+*.vm
+*.xml
+*.old
+*.expected
+*.jack
