@@ -10,25 +10,10 @@ class VMWriter:
     output_filename : str = field(init=False)
     write_file      : typing.IO = field(init=False)
     segment_lookup  : dict[str, str] = field(init=False)
-    #segment_lookup  : dict[Segment, str] = field(init=False)
-    #command_lookup  : dict[Command, str] = field(init=False)
 
     def __post_init__(self):
         self.output_filename = self.create_output_filename(self.input_filename)
         self.write_file = open(self.output_filename, 'w')
-
-        '''
-        segment_lookup = {
-                Segment.CONST   : 'constant',
-                Segment.ARG     : 'argument',
-                Segment.LOCAL   : 'local',
-                Segment.STATIC  : 'static',
-                Segment.THIS    : 'this',
-                Segment.THAT    : 'that',
-                Segment.POINTER : 'pointer',
-                Segment.TEMP    : 'temp'
-                }
-        '''
 
         self.segment_lookup = {
                 'constant': 'constant',
@@ -36,27 +21,12 @@ class VMWriter:
                 'var'     : 'local',
                 'static'  : 'static',
                 'field'   : 'this',
-                'that'    : 'that', # ??????
-                'pointer' : 'pointer', # ??????
-                'temp'    : 'temp' #?????
+                'that'    : 'that', 
+                'pointer' : 'pointer', 
+                'temp'    : 'temp' 
                 }
-
-        '''
-        command_lookup = {
-                Command.ADD : 'add',
-                Command.SUB : 'sub',
-                Command.NEG : 'neg',
-                Command.EQ  : 'eq',
-                Command.GT  : 'gt',
-                Command.LT  : 'lt', 
-                Command.AND : 'and',
-                Command.OR  : 'or',
-                Command.NOT : 'not'
-                }
-        '''
 
     def create_output_filename(self, jack_file):
-        #return ''.join([os.path.splitext(jack_file)[0], '.z', '.vm'])
         return ''.join([os.path.splitext(jack_file)[0], '.vm'])
 
     def write_line(self, line):

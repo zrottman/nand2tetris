@@ -11,13 +11,13 @@ def get_path():
     parser = argparse.ArgumentParser(
             prog='JackAnalyzer',
             description='Analyzes .jack files')
-    parser.add_argument('path',
-                        help='path to .jack file or dir containing .jack files')
+    parser.add_argument(
+            'path',
+            help='path to .jack file or dir containing .jack files')
     args = parser.parse_args()
     path = args.path
 
     return path
-
 
 def get_jack_files(path):
     '''

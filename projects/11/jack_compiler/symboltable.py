@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from .enums import TokenType, SymbolKind, SymbolScope
-import pprint
 
 @dataclass
 class SymbolTable:
@@ -32,29 +31,17 @@ class SymbolTable:
                 'kind': 'arg' | 'var'
                 'idx' : <int> }
                 },
-
     }
     '''
 
     idx_lookup   : dict[SymbolKind, int]  = field(init=False)
     scope_lookup : dict[SymbolKind, SymbolScope] = field(init=False)
-    #kind_lookup  : dict[str, SymbolKind] = field(init=False) # TODO: delete
 
     def __post_init__(self):
         self.symbols = {
                 SymbolScope.CLASS      : {},
                 SymbolScope.SUBROUTINE : {}
                 }
-
-
-        '''
-        self.idx_lookup = {
-                SymbolKind.STATIC : 0,
-                SymbolKind.FIELD  : 0,
-                SymbolKind.ARG    : 0,
-                SymbolKind.VAR    : 0 
-                }
-        '''
 
         self.idx_lookup = {
                 'static' : 0,
@@ -63,14 +50,6 @@ class SymbolTable:
                 'var'    : 0 
                 }
         
-        '''
-        self.scope_lookup = {
-                SymbolKind.STATIC : SymbolScope.CLASS,
-                SymbolKind.FIELD  : SymbolScope.CLASS,
-                SymbolKind.ARG    : SymbolScope.SUBROUTINE,
-                SymbolKind.VAR    : SymbolScope.SUBROUTINE 
-                }
-        '''
         self.scope_lookup = {
                 'static' : SymbolScope.CLASS,
                 'field'  : SymbolScope.CLASS,
@@ -78,18 +57,7 @@ class SymbolTable:
                 'var'    : SymbolScope.SUBROUTINE 
                 }
 
-        # TODO: delete; store kind as str not enum
-        '''
-        self.kind_lookup = {
-                'static': SymbolKind.STATIC,
-                'field' : SymbolKind.FIELD,
-                'arg'   : SymbolKind.ARG,
-                'var'   : SymbolKind.VAR
-                }
-        '''
-
     def define(self, name: str, symbol_type: str, symbol_kind: str):
-        #symbol_kind = self.kind_lookup[symbol_kind]
 
         self.symbols[self.scope_lookup[symbol_kind]][name] = {
                 'type': symbol_type,
@@ -99,17 +67,7 @@ class SymbolTable:
 
         self.idx_lookup[symbol_kind] += 1
 
-
-        # Logging
-        print("Adding to symbols table")
-        pprint.PrettyPrinter(depth=4).pprint(self.symbols)
-        print()
-
     def start_subroutine(self, f_name):
-        '''
-        self.idx_lookup[SymbolKind.ARG] = 0
-        self.idx_lookup[SymbolKind.VAR] = 0
-        '''
         self.idx_lookup['arg'] = 0
         self.idx_lookup['var'] = 0
         self.symbols[SymbolScope.SUBROUTINE] = {}
@@ -144,7 +102,6 @@ class SymbolTable:
     def contains(self, name: str) -> bool:
         if name in self.symbols[SymbolScope.SUBROUTINE]:
             return True
-        elif name in self.symbols[SymbolScope.CLASS]:
+        if name in self.symbols[SymbolScope.CLASS]:
             return True
-        else:
-            return False
+        return False

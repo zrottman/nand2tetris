@@ -3,8 +3,6 @@ import typing
 import re
 from .enums import TokenType
 
-
-
 @dataclass
 class Token:
     _type            : TokenType
@@ -28,6 +26,7 @@ class Token:
             self.tokens.get(self._type, "unknown token"), 
             val,
             self.tokens.get(self._type, "unknown token"))
+
 @dataclass
 class Tokenizer:
     
@@ -78,9 +77,8 @@ class Tokenizer:
 
     def get_next_token(self, advance_cursor=True):
         '''
-        TODO: Fix this hacky approach to peeking
+        TODO: Fix hacky approach to peeking with `advance_cursor
         '''
-
         if not self.has_more_tokens():
             return None
 
@@ -88,7 +86,7 @@ class Tokenizer:
 
         for regexp, token_type in self.lexical_elements:
 
-            token = self.match_token(regexp, cur_str, advance_cursor)
+            token = self.match_token(regexp, cur_str)
 
             # no match for this regex pattern
             if not token:
@@ -102,13 +100,14 @@ class Tokenizer:
             if token_type == TokenType.STRING_CONST:
                 token = token[1:-1]
 
-            if not advance_cursor: self.cursor -= len(token) #TODO <- hackiness
+            # if advance_cursor == False, undo cursor advance from self.match_token()
+            if not advance_cursor: self.cursor -= len(token)
 
             return Token(token_type, token)
 
         raise SyntaxError("Unexpected Token at position {} beginning with {}".format(self.cursor, cur_str[:10]))
 
-    def match_token(self, regexp, s, advance_cursor):
+    def match_token(self, regexp, s):
         if not (token := regexp.match(s)):
             return None
         self.cursor += len(token[0])
