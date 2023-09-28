@@ -303,18 +303,36 @@ class CompilationEngine:
         self.eat(token_value='let')
 
         var_name = self.eat(token_type=TokenType.IDENTIFIER)
+        is_array = False
 
         # TODO: deal with arrays
         if self.lookahead.value == '[':
+            is_array = True
+            self.vmwriter.write_push(self.symbols.kind_of(var_name), self.symbols.index_of(var_name))
             self.eat(token_value='[')
             self.compile_expression()
             self.eat(token_value=']')
+            self.vmwriter.write_arithmetic('add')
+            #self.vmwriter.write_pop('temp', 0) # AverageBug
 
         self.eat(token_value='=')
+
         self.compile_expression()
         self.eat(token_value=';')
 
-        self.vmwriter.write_pop(self.symbols.kind_of(var_name), self.symbols.index_of(var_name))
+        if not is_array:
+            self.vmwriter.write_pop(self.symbols.kind_of(var_name), self.symbols.index_of(var_name))
+        else:
+            self.vmwriter.write_pop('temp', 0) # AverageBug
+            self.vmwriter.write_pop('pointer', 1)
+            self.vmwriter.write_push('temp', 0)
+            self.vmwriter.write_pop('that', 0)
+            '''
+            # AverageBug
+            self.vmwriter.write_push('temp', 0)
+            self.vmwriter.write_pop('pointer', 1)
+            self.vmwriter.write_pop('that', 0)
+            '''
 
         self.write_line("</letStatement>")
 
@@ -415,7 +433,7 @@ class CompilationEngine:
             self.vmwriter.write_push('constant', str_len)
 
             # call String.new 1
-            self.vmwriter.write_function('String.new', 1) # check syntax
+            self.vmwriter.write_call('String.new', 1) # check syntax
             # top of stack is pointer to the string
 
             for c in string:
@@ -428,7 +446,13 @@ class CompilationEngine:
                 # call String.appendChar 2
 
                 self.vmwriter.write_push('constant', ord(c))
-                self.vmwriter.write_function('String.appendChar', 2)
+                self.vmwriter.write_call('String.appendChar', 2)
+                # my assumption above is that string.appendchar takes 2 args, the first of which
+                # is the base address of the string, on the stack from string.new and
+                # returned each time after appendchar. After appending the final char, though,
+                # the address of the string created above is on the stack. Do we need to
+                # get rid of it? seems like no because the below causes errors
+                #self.vmwriter.write_pop('temp', 0)
 
 
         # keyword constant
@@ -460,10 +484,14 @@ class CompilationEngine:
 
         # var_name [ expression ] -> array notation?
             if self.peek().value == '[':
-                self.eat(token_type=TokenType.IDENTIFIER) # symboltable: either var, static, or field
+                var_name = self.eat(token_type=TokenType.IDENTIFIER) # symboltable: either var, static, or field
+                self.vmwriter.write_push(self.symbols.kind_of(var_name), self.symbols.index_of(var_name))
                 self.eat(token_value='[')
-                self.compile_expression()
+                self.compile_expression() # push the number inside brackets (i.e., index number)
                 self.eat(token_value=']')
+                self.vmwriter.write_arithmetic('add')
+                self.vmwriter.write_pop('pointer', 1) # THAT = array + index number
+                self.vmwriter.write_push('that', 0)
         # subroutine call
             elif self.peek().value in ['(', '.']:
                 self.compile_subroutine_call()
