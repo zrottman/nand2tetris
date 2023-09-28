@@ -1,5 +1,12 @@
-*.vm
-*.xml
-*.old
-*.expected
 *.jack
+*.vm
+
+// ignore system files
+Array.vm
+Keyboard.vm
+Math.vm
+Memory.vm
+Output.vm
+Screen.vm
+String.vm
+Sys.vm
