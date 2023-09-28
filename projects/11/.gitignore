@@ -1,5 +1,3 @@
-*.jack
-
 // ignore system files
 Array.vm
 Keyboard.vm
