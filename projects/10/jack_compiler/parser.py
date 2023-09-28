@@ -17,10 +17,8 @@ class Parser:
     def __post_init__(self):
         self.tokenizer = Tokenizer(self.input_filename)
         self.output_filename = self.create_output_filename(self.input_filename)
-        self.lookahead = self.tokenizer.get_next_token()
+        self.advance_token()
         self.write_file = open(self.output_filename, "w")
-        #self.tokenizer.tokenize()
-        #self.tokenizer.dump_tokens()
 
     def create_output_filename(self, jack_file):
         return ''.join([os.path.splitext(jack_file)[0], '.z', '.xml'])
