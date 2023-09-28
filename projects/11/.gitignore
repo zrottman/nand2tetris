@@ -1,5 +1,4 @@
 *.jack
-*.vm
 
 // ignore system files
 Array.vm
