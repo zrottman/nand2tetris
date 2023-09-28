@@ -21,7 +21,8 @@ class Main {
         let a[4] = 8;
         let a[5] = 4;
         let b[a[3]] = a[3] + 3;  // b[2] = 5
-        let a[b[a[3]]] = a[a[5]] * b[((7 - a[3]) - Main.double(2)) + 1];  // a[5] = 8 * 5 = 40
+        //let a[b[a[3]]] = a[a[5]] * b[((7 - a[3]) - Main.double(2)) + 1];  // a[5] = 8 * 5 = 40
+        let a[b[a[3]]] = a[a[5]] * b[((7 - a[3]) - Main.x2(2)) + 1];  // a[5] = 8 * 5 = 40
         let c[0] = null;
         let c = c[0];
         
@@ -56,7 +57,8 @@ class Main {
         return;
     }
     
-    function int double(int a) {
+    //function int double(int a) {
+    function int x2(int a) {
     	return a * 2;
     }
     
