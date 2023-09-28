@@ -50,6 +50,12 @@ class Tokenizer:
             [re.compile(r"^[\s\n]+"), None],
 
             # keywords
+            # TODO: This regex needs to be updated, since variable names that start with
+            # any of these keywords (i.e., `double` or `classic`) will erroneously match
+            # and compile as KEYWORDs rather than IDENTIFIERs. One solution is to wrap each
+            # regex statement in parens to group then, and then to include [^a-zA-Z0-9] in the
+            # regex below, and then to extract the matched group with `match[1]` syntax in
+            # `match_token()` function
             [re.compile(r"""^
                 class | constructor | function | method |
                 field | static | var | int | char | boolean |
