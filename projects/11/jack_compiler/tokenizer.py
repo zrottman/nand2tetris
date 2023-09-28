@@ -35,18 +35,18 @@ class Tokenizer:
     lexical_elements: typing.ClassVar[list[list[typing.Pattern, TokenType]]] = [
 
             # numbers
-            [re.compile(r"^\d+"), TokenType.INT_CONST],
+            [re.compile(r"^(\d+)"), TokenType.INT_CONST],
 
             # strings
-            [re.compile(r"^\"[^\"]*\""), TokenType.STRING_CONST],
-            [re.compile(r"^'[^']*.'"), TokenType.STRING_CONST],
+            [re.compile(r"^(\"[^\"]*\")"), TokenType.STRING_CONST],
+            [re.compile(r"^('[^']*.')"), TokenType.STRING_CONST],
 
             # comments
-            [re.compile(r"^//.*"), None],
-            [re.compile(r"^\/\*.*?\*\/", flags=re.DOTALL), None],
+            [re.compile(r"^(//.*)"), None],
+            [re.compile(r"^(\/\*.*?\*\/)", flags=re.DOTALL), None],
 
             # whitespace
-            [re.compile(r"^[\s\n]+"), None],
+            [re.compile(r"^([\s\n]+)"), None],
 
             # keywords
             # TODO: This regex needs to be updated, since variable names that start with
@@ -56,17 +56,17 @@ class Tokenizer:
             # regex below, and then to extract the matched group with `match[1]` syntax in
             # `match_token()` function
             [re.compile(r"""^
-                class | constructor | function | method |
+                (class | constructor | function | method |
                 field | static | var | int | char | boolean |
                 void | true | false | null | this | let | do |
-                if | else | while | return
+                if | else | while | return)[^a-zA-Z0-9]
                 """, re.X), TokenType.KEYWORD],
 
             # symbols
-            [re.compile(r"^[\{\}\(\)\[\]\.\,\;\+\-\*\/\&\|\<\>\=\~]"), TokenType.SYMBOL],
+            [re.compile(r"^([\{\}\(\)\[\]\.\,\;\+\-\*\/\&\|\<\>\=\~])"), TokenType.SYMBOL],
 
             # identifiers
-            [re.compile(r"^[a-zA-Z][a-zA-Z0-9\_]*"), TokenType.IDENTIFIER]]
+            [re.compile(r"^([a-zA-Z][a-zA-Z0-9\_]*)"), TokenType.IDENTIFIER]]
 
     def __post_init__(self):
         with open(self.jack_file, "r") as f:
@@ -110,5 +110,5 @@ class Tokenizer:
     def match_token(self, regexp, s):
         if not (token := regexp.match(s)):
             return None
-        self.cursor += len(token[0])
-        return token[0]
+        self.cursor += len(token[1])
+        return token[1]
